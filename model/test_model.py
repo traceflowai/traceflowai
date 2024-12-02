@@ -1,4 +1,4 @@
-from training import *
+from train_model import *
 
 # load the fine-tuned model (alephbert)
 model_path = "./alephbert_fine_tuned"

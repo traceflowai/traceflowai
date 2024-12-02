@@ -63,6 +63,8 @@ def main():
         compute_metrics=compute_metrics,
     )
 
+    trainer.train()
+
     # save the model and tokenizer
     trainer.save_model("./alephbert_fine_tuned")
     tokenizer.save_pretrained("./alephbert_fine_tuned")
