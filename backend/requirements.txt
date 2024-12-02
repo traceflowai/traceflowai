@@ -1,1 +1,4 @@
-pytorch
+torch
+scikit-learn
+tranformers
+datsets
