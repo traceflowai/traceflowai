@@ -2,4 +2,4 @@
 venv
 results
 alephbert_fine_tuned
-.model/__pycache__/train_model.cpython-312.pyc
+model/__pycache__/train_model.cpython-312.pyc
