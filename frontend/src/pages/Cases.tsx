@@ -3,6 +3,7 @@ import { Case } from '../types';
 import DataTable from '../components/common/DataTable';
 import StatusBadge from '../components/common/StatusBadge';
 import CaseDetails from '../components/cases/CaseDetails';
+import AddCaseModal from '../components/cases/AddCaseModal';
 import { format } from 'date-fns';
 
 const initialCases: Case[] = [
@@ -54,21 +55,15 @@ const columns = [
 export default function Cases() {
   const [cases, setCases] = useState<Case[]>(initialCases); // Use state for cases
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  function addCase(): void {
-    const newCase: Case = {
+  const handleAddCase = (newCase: Omit<Case, 'id'>) => {
+    const caseWithId: Case = {
+      ...newCase,
       id: (cases.length + 1).toString(),
-      source: '+1122334455',
-      severity: 'medium',
-      status: 'open',
-      type: 'New Case Type',
-      timestamp: new Date().toISOString(),
-      riskScore: 50,
-      flaggedKeywords: ['example', 'test'],
-      actionsTaken: ['None'],
     };
-    setCases([...cases, newCase]); // Update state to include the new case
-  }
+    setCases([...cases, caseWithId]);
+  };
 
   return (
     <div className="space-y-6">
@@ -82,7 +77,7 @@ export default function Cases() {
         <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
           <button
             type="button"
-            onClick={() => addCase()}
+            onClick={() => setIsAddModalOpen(true)}
             className="block rounded-md bg-primary-600 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             Add case
@@ -99,6 +94,12 @@ export default function Cases() {
       <CaseDetails
         caseData={selectedCase}
         onClose={() => setSelectedCase(null)}
+      />
+
+      <AddCaseModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSubmit={handleAddCase}
       />
     </div>
   );

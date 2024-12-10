@@ -1,76 +1,62 @@
-import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid';
-import { clsx } from 'clsx';
+import React from 'react';
+import { FileAudio, Users, AlertCircle, TrendingUp } from 'lucide-react';
+import { StatCard } from '../components/dashboard/StatCard';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const metrics = [
-  {
-    name: 'New Alerts',
-    value: '24',
-    change: '+4.75%',
-    trend: 'up',
-  },
-  {
-    name: 'Active Cases',
-    value: '12',
-    change: '-1.25%',
-    trend: 'down',
-  },
-  {
-    name: 'Weekly Resolution Rate',
-    value: '85.6%',
-    change: '+2.15%',
-    trend: 'up',
-  },
-  {
-    name: 'Blocked Numbers',
-    value: '156',
-    change: '+12.5%',
-    trend: 'up',
-  },
+const mockChartData = [
+  { name: 'Jan', cases: 12 },
+  { name: 'Feb', cases: 19 },
+  { name: 'Mar', cases: 15 },
+  { name: 'Apr', cases: 25 },
+  { name: 'May', cases: 22 },
+  { name: 'Jun', cases: 30 },
 ];
 
 export default function Dashboard() {
   return (
-    <div>
-      <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Dashboard</h1>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
       
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {metrics.map((metric) => (
-          <div
-            key={metric.name}
-            className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 py-5 shadow sm:p-6"
-          >
-            <dt className="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
-              {metric.name}
-            </dt>
-            <dd className="mt-1 flex items-baseline justify-between md:block lg:flex">
-              <div className="flex items-baseline text-2xl font-semibold text-gray-900 dark:text-white">
-                {metric.value}
-              </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <StatCard
+          title="Total Cases"
+          value={123}
+          icon={FileAudio}
+          trend={{ value: 12, isPositive: true }}
+        />
+        <StatCard
+          title="Tracked Individuals"
+          value={45}
+          icon={Users}
+          trend={{ value: 5, isPositive: true }}
+        />
+        <StatCard
+          title="High Risk Cases"
+          value={8}
+          icon={AlertCircle}
+          trend={{ value: 2, isPositive: false }}
+        />
+        <StatCard
+          title="Case Resolution Rate"
+          value="78%"
+          icon={TrendingUp}
+          trend={{ value: 3, isPositive: true }}
+        />
+      </div>
 
-              <div
-                className={clsx(
-                  metric.trend === 'up'
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                    : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-                  'inline-flex items-baseline rounded-full px-2.5 py-0.5 text-sm font-medium md:mt-2 lg:mt-0'
-                )}
-              >
-                {metric.trend === 'up' ? (
-                  <ArrowUpIcon
-                    className="-ml-1 mr-0.5 h-5 w-5 flex-shrink-0 self-center text-green-500 dark:text-green-400"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <ArrowDownIcon
-                    className="-ml-1 mr-0.5 h-5 w-5 flex-shrink-0 self-center text-red-500 dark:text-red-400"
-                    aria-hidden="true"
-                  />
-                )}
-                {metric.change}
-              </div>
-            </dd>
-          </div>
-        ))}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 className="text-lg font-semibold mb-4">Case Trends</h2>
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={mockChartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="cases" fill="#3B82F6" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );

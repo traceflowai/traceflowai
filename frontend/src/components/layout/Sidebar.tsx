@@ -1,12 +1,11 @@
 import { useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, Users, BarChart, Settings } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Settings } from 'lucide-react';
 import NavButton from './NavButton';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Cases', href: '/cases', icon: FileText },
   { name: 'Watchlist', href: '/watchlist', icon: Users },
-  { name: 'Reports', href: '/reports', icon: BarChart },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
