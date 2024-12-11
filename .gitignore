@@ -1,5 +1,11 @@
+# Environment and virtual environments
 .env
-venv
-results
-alephbert_fine_tuned
-model/__pycache__/train_model.cpython-312.pyc
+venv/
+
+# Generated files and results
+results/
+alephbert_fine_tuned/
+
+# Python bytecode cache
+model/__pycache__/
+backend/__pycache__/
