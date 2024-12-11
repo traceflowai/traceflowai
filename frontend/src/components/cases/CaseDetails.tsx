@@ -88,10 +88,10 @@ export default function CaseDetails({ caseData, onClose }: CaseDetailsProps) {
                     factors={mockRiskFactors}
                   />
                   <CallSummary
-                    summary="Caller exhibited suspicious behavior discussing multiple transactions with unusual patterns. Referenced offshore accounts and showed resistance to providing required documentation."
+                    summary= {caseData.summary}
                     keywords={caseData.flaggedKeywords || []}
                     sentiment="negative"
-                    duration="12:34"
+                    duration={caseData.duration.toString()}
                     timestamp={caseData.timestamp}
                   />
                 </div>

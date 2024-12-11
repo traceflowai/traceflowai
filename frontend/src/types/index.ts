@@ -7,7 +7,9 @@ export interface Case {
   timestamp: string;
   riskScore: number;
   flaggedKeywords: string[];
-  actionsTaken: string[];
+  summary: string;
+  script: string;
+  duration: number;
 }
 
 export interface Alert {

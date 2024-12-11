@@ -1,31 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, ChangeEvent } from 'react';
 import { X, Upload } from 'lucide-react';
 
 interface AddCaseModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: FormData) => void;
 }
 
 export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModalProps) {
   const [formData, setFormData] = useState({
     source: '',
     type: '',
-    severity: 'medium',
+    severity: 'medium' as 'low' | 'medium' | 'high',
   });
+  const [audioFile, setAudioFile] = useState<File | null>(null);
 
   if (!isOpen) return null;
 
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setAudioFile(files[0]);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      ...formData,
-      timestamp: new Date().toISOString(),
-      status: 'open',
-      riskScore: Math.floor(Math.random() * 100),
-      flaggedKeywords: [],
-      actionsTaken: ['Case Created'],
-    });
+
+    // Create FormData to send both file and text fields
+    const submitFormData = new FormData();
+    
+    // Append text fields
+    submitFormData.append('source', formData.source);
+    submitFormData.append('type', formData.type);
+    submitFormData.append('severity', formData.severity);
+    submitFormData.append('status', 'open');
+
+    // Append audio file if exists
+    if (audioFile) {
+      submitFormData.append('mp3file', audioFile);
+    }
+
+    // Call onSubmit with FormData
+    onSubmit(submitFormData);
     onClose();
   };
 
@@ -50,7 +67,7 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
             <input
               type="text"
               value={formData.source}
-              onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+              onChange={(e) => setFormData(prev => ({ ...prev, source: e.target.value }))}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
@@ -63,7 +80,7 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
             <input
               type="text"
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
@@ -75,7 +92,7 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
             </label>
             <select
               value={formData.severity}
-              onChange={(e) => setFormData({ ...formData, severity: e.target.value as any })}
+              onChange={(e) => setFormData(prev => ({ ...prev, severity: e.target.value as 'low' | 'medium' | 'high' }))}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             >
               <option value="low">Low</option>
@@ -91,9 +108,15 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
             <input
               type="file"
               accept="audio/*"
+              onChange={handleFileChange}
               className="mt-1 block w-full"
               required
             />
+            {audioFile && (
+              <p className="mt-2 text-sm text-gray-500">
+                Selected file: {audioFile.name}
+              </p>
+            )}
           </div>
 
           <button

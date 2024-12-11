@@ -1,35 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Case } from '../types';
 import DataTable from '../components/common/DataTable';
 import StatusBadge from '../components/common/StatusBadge';
 import CaseDetails from '../components/cases/CaseDetails';
 import AddCaseModal from '../components/cases/AddCaseModal';
 import { format } from 'date-fns';
+import { toast , Toaster} from 'sonner'; // Recommended for better notifications
 
-const initialCases: Case[] = [
-  {
-    id: '1',
-    source: '+1234567890',
-    severity: 'high',
-    status: 'open',
-    type: 'Suspicious Transaction',
-    timestamp: '2024-03-14T10:30:00Z',
-    riskScore: 85,
-    flaggedKeywords: ['unauthorized', 'suspicious', 'offshore'],
-    actionsTaken: ['Initial Review'],
-  },
-  {
-    id: '2',
-    source: '+0987654321',
-    severity: 'medium',
-    status: 'pending',
-    type: 'Unusual Pattern',
-    timestamp: '2024-03-14T09:15:00Z',
-    riskScore: 65,
-    flaggedKeywords: ['multiple accounts', 'urgent'],
-    actionsTaken: ['Automated Flag'],
-  },
-];
+const API_BASE_URL = 'http://localhost:8000';
 
 const columns = [
   { key: 'id', header: 'ID' },
@@ -51,22 +29,61 @@ const columns = [
     render: (value: string) => format(new Date(value), 'MMM d, yyyy HH:mm'),
   },
 ];
-
 export default function Cases() {
-  const [cases, setCases] = useState<Case[]>(initialCases); // Use state for cases
+  const [cases, setCases] = useState<Case[]>([]);
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleAddCase = (newCase: Omit<Case, 'id'>) => {
-    const caseWithId: Case = {
-      ...newCase,
-      id: (cases.length + 1).toString(),
-    };
-    setCases([...cases, caseWithId]);
+  const fetchCases = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/cases`, {
+        method: 'GET',
+        mode: 'cors',
+      })
+      if (!response.ok) {
+        throw new Error('Failed to fetch cases');
+      }
+      const data = await response.json();
+      setCases(data);
+    } catch (error) {
+      toast.error('Failed to fetch cases', {
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCases();
+  }, [fetchCases]);
+
+  const handleAddCase = async (formData: FormData) => {
+    try {
+      const response = await fetch('http://localhost:8000/cases', {
+        method: 'POST',
+        body: formData,
+      });
+  
+      if (!response.ok) {
+        throw new Error('Failed to add case');
+      }
+  
+      const createdCase = await response.json();
+      setCases((prev) => [...prev, createdCase]);
+      toast.success('Case added successfully');
+    } catch (error) {
+      toast.error('Failed to add case', {
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
   };
 
   return (
     <div className="space-y-6">
+       {isLoading && <div>Loading cases...</div>}
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Cases</h1>
@@ -86,16 +103,19 @@ export default function Cases() {
       </div>
 
       <DataTable
-        data={cases} // Pass the state variable to DataTable
+        data={cases}
         columns={columns}
         onRowClick={setSelectedCase}
       />
 
-      <CaseDetails
-        caseData={selectedCase}
-        onClose={() => setSelectedCase(null)}
-      />
+      {selectedCase && (
+        <CaseDetails
+          caseData={selectedCase}
+          onClose={() => setSelectedCase(null)}
+        />
+      )}
 
+      <Toaster />
       <AddCaseModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}

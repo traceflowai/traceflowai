@@ -4,7 +4,6 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Cases from './pages/Cases';
 import Watchlist from './pages/Watchlist';
-import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ThemeProvider from './components/theme/ThemeProvider';

@@ -2,3 +2,9 @@ torch
 scikit-learn
 transformers
 datasets
+pymongo[srv]
+fastapi
+pydantic
+motor
+bson
+mutagen
