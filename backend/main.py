@@ -11,7 +11,7 @@ import os
 from math import floor
 from dotenv import load_dotenv
 
-from model.extract_entities import extract_person_names
+from model import *
 
 
 # Pydantic models

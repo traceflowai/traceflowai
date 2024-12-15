@@ -9,3 +9,6 @@ alephbert_fine_tuned/
 # Python bytecode cache
 model/__pycache__/
 backend/__pycache__/
+
+model/alephbert_fine_tuned/*
+model/ner_model/*
