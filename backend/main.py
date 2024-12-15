@@ -10,6 +10,9 @@ import random
 import os
 from math import floor
 
+from model.extract_entities import extract_person_names
+
+
 # Pydantic models
 class CaseBase(BaseModel):
     source: str
@@ -77,8 +80,10 @@ async def create_case(
     # Use mutagen to calculate the duration
     audio = MP3(file_path)
     duration = audio.info.length  # Duration in seconds
-
-
+    conversation = ""
+    per_to_check = extract_person_names(conversation)
+    #TODO: check those names with the related names in the database and return the related entities
+    related_entities = []
     case_data = {
         "source": source,
         "severity": severity,
@@ -89,7 +94,8 @@ async def create_case(
         "flaggedKeywords": [],
         "script": "Generated script placeholder",
         "summary": "Generated summary placeholder",
-        "duration": duration  # Calculate duration based on file size
+        "duration": duration, # Calculate duration based on file size
+        "related_entities": related_entities
     }
 
     os.remove(file_path)

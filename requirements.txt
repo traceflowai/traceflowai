@@ -2,6 +2,7 @@ torch
 scikit-learn
 transformers
 datasets
+transformers[torch]
 pymongo[srv]
 fastapi
 pydantic
