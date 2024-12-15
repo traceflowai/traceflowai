@@ -4,7 +4,6 @@ venv/
 
 # Generated files and results
 results/
-alephbert_fine_tuned/
 
 # Python bytecode cache
 model/__pycache__/
