@@ -9,6 +9,7 @@ from mutagen.mp3 import MP3
 import random
 import os
 from math import floor
+from dotenv import load_dotenv
 
 # Pydantic models
 class CaseBase(BaseModel):
@@ -30,11 +31,12 @@ class Case(CaseBase):
 app = FastAPI()
 
 # MongoDB Configuration
-MONGO_URI = "mongodb+srv://traceflowai:mxXCLf7qLL9HeEfP@main-cluster.q7y57.mongodb.net/?retryWrites=true&w=majority&appName=main-cluster"
+load_dotenv()
+MONGO_URL = os.getenv("MONGO_URL")
 DB_NAME = "data"
 COLLECTION_NAME = "cases"
 
-client = AsyncIOMotorClient(MONGO_URI)
+client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 collection = db[COLLECTION_NAME]
 

@@ -8,3 +8,5 @@ pydantic
 motor
 bson
 mutagen
+python-dotenv
+uvicorn
