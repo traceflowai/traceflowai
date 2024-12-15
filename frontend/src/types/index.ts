@@ -10,6 +10,7 @@ export interface Case {
   summary: string;
   script: string;
   duration: number;
+  related_entities: string[];
 }
 
 export interface Alert {
