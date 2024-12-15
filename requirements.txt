@@ -11,3 +11,4 @@ bson
 mutagen
 python-dotenv
 uvicorn
+stanza
