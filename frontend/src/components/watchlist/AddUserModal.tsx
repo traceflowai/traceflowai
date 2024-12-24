@@ -1,37 +1,22 @@
-import React, { useState, ChangeEvent } from 'react';
+import React, { useState } from 'react';
 import { X, Upload } from 'lucide-react';
-import { toast } from 'sonner';
 
-interface AddCaseModalProps {
+interface AddUserModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: FormData) => void;
 }
 
-export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModalProps) {
+export default function AddUserModal({ isOpen, onClose, onSubmit }: AddUserModalProps) {
   const [formData, setFormData] = useState({
-    source: '',
-    type: '',
-    severity: 'medium' as 'low' | 'medium' | 'high',
+    id: '',
+    name: '',
+    phoneNumber: '',
+    riskLevel: 'medium' as 'low' | 'medium' | 'high',
   });
-  const [audioFile, setAudioFile] = useState<File | null>(null);
 
   if (!isOpen) return null;
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      if (fileExtension === 'wav') {
-        setAudioFile(file);
-      } else {
-        toast('Please upload only .wav files.');
-        e.target.value = ''; // Reset file input
-      }
-    }
-  };
-  
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,16 +24,12 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
     // Create FormData to send both file and text fields
     const submitFormData = new FormData();
     
-    // Append text fields
-    submitFormData.append('source', formData.source);
-    submitFormData.append('type', formData.type);
-    submitFormData.append('severity', formData.severity);
-    submitFormData.append('status', 'open');
 
-    // Append audio file if exists
-    if (audioFile) {
-      submitFormData.append('wavFile', audioFile);
-    }
+    // Append text fields
+    submitFormData.append('id', formData.id);
+    submitFormData.append('name', formData.name);
+    submitFormData.append('phoneNumber', formData.phoneNumber);
+    submitFormData.append('riskLevel', formData.riskLevel);
 
     // Call onSubmit with FormData
     onSubmit(submitFormData);
@@ -59,7 +40,7 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
     <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
         <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-xl font-semibold">Add New Case</h2>
+          <h2 className="text-xl font-semibold">Add New User</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-500"
@@ -69,14 +50,14 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
+        <div>
             <label className="block text-sm font-medium text-gray-700">
-              Source
+              id
             </label>
             <input
               type="text"
-              value={formData.source}
-              onChange={(e) => setFormData(prev => ({ ...prev, source: e.target.value }))}
+              value={formData.id}
+              onChange={(e) => setFormData(prev => ({ ...prev, id: e.target.value }))}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
@@ -84,12 +65,12 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
 
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Case Type
+              Name
             </label>
             <input
               type="text"
-              value={formData.type}
-              onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+              value={formData.name}
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
@@ -97,11 +78,24 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
 
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Severity
+              Phone Number
+            </label>
+            <input
+              type="tel"
+              value={formData.phoneNumber}
+              onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Risk Level
             </label>
             <select
-              value={formData.severity}
-              onChange={(e) => setFormData(prev => ({ ...prev, severity: e.target.value as 'low' | 'medium' | 'high' }))}
+              value={formData.riskLevel}
+              onChange={(e) => setFormData(prev => ({ ...prev, riskLevel: e.target.value as 'low' | 'medium' | 'high' }))}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             >
               <option value="low">Low</option>
@@ -110,30 +104,12 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Audio File
-            </label>
-            <input
-              type="file"
-              accept=".wav"
-              onChange={handleFileChange}
-              className="mt-1 block w-full"
-              required
-            />
-            {audioFile && (
-              <p className="mt-2 text-sm text-gray-500">
-                Selected file: {audioFile.name}
-              </p>
-            )}
-          </div>
-
           <button
             type="submit"
             className="w-full flex justify-center items-center space-x-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             <Upload className="w-4 h-4" />
-            <span>Upload Case</span>
+            <span>Upload User</span>
           </button>
         </form>
       </div>

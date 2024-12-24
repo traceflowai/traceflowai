@@ -1,13 +1,9 @@
 import os
-import subprocess
 import speech_recognition as sr
-
-# רשימת סוגי הקבצים הנתמכים להמרה
-SUPPORTED_FORMATS = [".mp3", ".aac", ".ogg", ".flac", ".opus"]
 
 def add_advanced_punctuation_and_line_breaks(text):
     """
-    הוספת פיסוק מתקדם לטקסט עם זיהוי שאלות והוספת ירידות שורה.
+    Adding punctuation to the text for better readability
     """
     question_words = {"מה", "מי", "למה", "איך", "מתי", "איפה", "האם", "נו", "אז", "כמה", "איזה", "מדוע"}
     punctuation_words = {"אבל", "כי", "לכן", "וגם", "או", "שגם", "בנוסף", "אולם"}
@@ -27,9 +23,9 @@ def add_advanced_punctuation_and_line_breaks(text):
             current_sentence[-1] = word + ","
 
         is_end_of_sentence = (
-            i + 1 == len(words)  # סוף הטקסט
-            or words[i + 1] in question_words  # התחלה של שאלה חדשה
-            or words[i + 1] in punctuation_words  # התחלה של משפט חדש
+            i + 1 == len(words)  # end of the text
+            or words[i + 1] in question_words  # start of a new question
+            or words[i + 1] in punctuation_words  # start of a new sentence
         )
 
         if is_end_of_sentence:
@@ -50,52 +46,37 @@ def add_advanced_punctuation_and_line_breaks(text):
 
     return "\n".join(punctuated_text)
 
-def convert_to_wav(input_file):
+def speech_to_text_func(input_file):
     """
-    ממיר קובץ שמע לפורמט WAV באמצעות FFmpeg.
+    Handles the process of converting speech from an audio file (WAV) to text
     """
-    file_extension = os.path.splitext(input_file)[1].lower()
-    if file_extension not in SUPPORTED_FORMATS:
-        raise ValueError(f"פורמט הקובץ {file_extension} אינו נתמך.")
-
-    output_file = "audio.wav"
-    subprocess.run(
-        ["ffmpeg", "-y", "-i", input_file, output_file],
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    return output_file
-
-def speech_to_text_func():
-    input_file = input("אנא הכנס את נתיב קובץ השמע: ").strip()
-
     if not os.path.exists(input_file):
-        print("הקובץ לא נמצא. ודא שהנתיב נכון.")
-        return
+        return "File not found. Please ensure the path is correct."
 
     try:
-        if not input_file.endswith(".wav"):
-            print("מבצע המרה ל-WAV...")
-            input_file = convert_to_wav(input_file)
-            print("ההמרה הושלמה בהצלחה.")
-
         recognizer = sr.Recognizer()
         with sr.AudioFile(input_file) as source:
-            print("מבצע זיהוי דיבור...")
             audio_data = recognizer.record(source)
             text = recognizer.recognize_google(audio_data, language="he-IL")
-            print("הטקסט המזוהה לפני פיסוק:")
-            print(text)
 
             punctuated_text = add_advanced_punctuation_and_line_breaks(text)
-            print("\nהטקסט המזוהה עם פיסוק:")
-            print(punctuated_text)
+            return punctuated_text
     except FileNotFoundError:
-        print("שגיאה: הקובץ לא נמצא.")
+        return "File not found."
     except sr.UnknownValueError:
-        print("שגיאה: לא זוהה טקסט בקובץ.")
+        return "No speech detected in the audio file."
     except sr.RequestError as e:
-        print(f"שגיאה בשירות Google Speech Recognition: {e}")
+        return f"Error with Google Speech Recognition service: {e}"
     except Exception as e:
-        print(f"שגיאה: {e}")
+        return f"Error: {e}"
+
+def main():
+    """
+    Main function to handle user input and trigger the speech-to-text process.
+    """
+    input_file = input("Please enter the path to the WAV audio file: ").strip()
+    result = speech_to_text_func(input_file)
+    print(result)  # Print the result to the user
+
+if __name__ == "__main__":
+    main()
