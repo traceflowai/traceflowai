@@ -1,5 +1,6 @@
 import React, { useState, ChangeEvent } from 'react';
 import { X, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface AddCaseModalProps {
   isOpen: boolean;
@@ -20,9 +21,17 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      setAudioFile(files[0]);
+      const file = files[0];
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+      if (fileExtension === 'wav') {
+        setAudioFile(file);
+      } else {
+        toast('Please upload only .wav files.');
+        e.target.value = ''; // Reset file input
+      }
     }
   };
+  
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +47,7 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
 
     // Append audio file if exists
     if (audioFile) {
-      submitFormData.append('mp3file', audioFile);
+      submitFormData.append('wavFile', audioFile);
     }
 
     // Call onSubmit with FormData
@@ -107,7 +116,7 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
             </label>
             <input
               type="file"
-              accept="audio/*"
+              accept=".wav"
               onChange={handleFileChange}
               className="mt-1 block w-full"
               required

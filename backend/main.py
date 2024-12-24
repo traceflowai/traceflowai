@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException , UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-from mutagen.mp3 import MP3
+from mutagen.wave import WAVE
 import random
 import os
 from math import floor
@@ -15,6 +15,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from model.extract_entities import extract_person_names
 from model.score import sentence_score
+from model.speech_to_text import speech_to_text_func
 
 
 # Pydantic models
@@ -92,63 +93,55 @@ async def create_case(
     type: str = Form(...),
     severity: str = Form(...),
     status: str = Form(...),
-    mp3file: UploadFile = File(...),
-    ):
+    wavFile: UploadFile = File(...),
+):
+    try:
+        # Save the file temporarily for processing
+        file_path = f"./tmp_wav"
+        with open(file_path, "wb") as temp_file:
+            temp_file.write(await mp3file.read())
 
-    # Save the file temporarily for processing
-    file_path = f"./tmp_mp3"
-    with open(file_path, "wb") as temp_file:
-        temp_file.write(await mp3file.read())
+        # Use mutagen to calculate the duration
+        audio = WAVE(file_path)
+        duration = audio.info.length  # Duration in seconds
+        # Perform speech to text
+        conversation = speech_to_text_func(file_path)
+        if not conversation:
+            raise HTTPException(status_code=400, detail="Failed to transcribe speech to text.")
 
-    # Use mutagen to calculate the duration
-    audio = MP3(file_path)
-    duration = audio.info.length  # Duration in seconds
-    conversation = """
-    מיה: היי אדם, מה קורה?
-    אדם: היי מיה, הכול טוב. מה איתך?
-    מיה: סבבה, תודה. תגיד, ראית את יונתן היום?
-    אדם: לא, אבל דיברתי איתו. הוא אמר שהוא יושב עכשיו עם דניאל.
-    מיה: אה, איפה?
-    אדם: בקפה "תמר", אני חושב. למה? רצית להצטרף?
-    מיה: אולי. חשבתי גם להתקשר ללירון, לשאול אם היא רוצה לבוא.
-    אדם: לירון? האמת, היא סיפרה לי אתמול שהיא ממש עמוסה עם העבודה.
-    מיה: כן, אני יודעת... אבל לא ראיתי אותה מלא זמן.
-    אדם: אז אולי תדברי גם עם רוני? היא אמרה לי שהיא מחפשת זמן לשבת איתך.
-    מיה: רעיון טוב! אני אתקשר אליה אחרי זה. תודה, אדם!
-    אדם: בכיף. תגידי לי אם אתן מגיעות, אולי אני גם אקפוץ.
-    מיה: סגור! נדבר.
-    אדם: סתום תפה אני מעביר לך מלא מלא כסף מתחת לשלוחן
-    שלמה: לא חשוד בכל, דבר עם החבר מהבנק שלנו שעובד בחו"ל
-    """
-    related_entities = extract_person_names(conversation)
-    score, flagged_Keywords = sentence_score(conversation)
-    case_data = {
-        "source": source,
-        "severity": severity,
-        "status": status,
-        "type": type,
-        "timestamp": datetime.now(),
-        "riskScore": score,
-        "flaggedKeywords": flagged_Keywords,
-        "script": "Generated script placeholder",
-        "summary": "Generated summary placeholder",
-        "duration": duration, # Calculate duration based on file size
-        "related_entities": related_entities
-    }
+        # Extract related entities and score the conversation
+        related_entities = extract_person_names(conversation)
+        score, flagged_keywords = sentence_score(conversation)
 
-    os.remove(file_path)
+        case_data = {
+            "source": source,
+            "severity": severity,
+            "status": status,
+            "type": type,
+            "timestamp": datetime.now(),
+            "riskScore": score,
+            "flaggedKeywords": flagged_keywords,
+            "script": conversation,  # Placeholder, you can generate the script here if needed
+            "summary": "Generated summary placeholder",  # Placeholder, you can generate the summary here if needed
+            "duration": duration,  # Duration in seconds
+            "related_entities": related_entities
+        }
 
+        # Remove temporary file
+        os.remove(file_path)
 
-    # Insert case data into MongoDB
-    result = await collection_cases.insert_one(case_data)
-    case_data["id"] = str(result.inserted_id)  # Convert ObjectId to string
-    case_data.pop("_id", None)  # Remove MongoDB's _id field if present
+        # Insert case data into MongoDB
+        result = await collection_cases.insert_one(case_data)
+        case_data["id"] = str(result.inserted_id)  # Convert ObjectId to string
+        case_data.pop("_id", None)  # Remove MongoDB's _id field if present
 
-    # Ensure all fields are JSON-serializable
-    case_data["timestamp"] = case_data["timestamp"].isoformat()  # Convert datetime to ISO 8601 string
+        # Ensure all fields are JSON-serializable
+        case_data["timestamp"] = case_data["timestamp"].isoformat()  # Convert datetime to ISO 8601 string
 
-    print(case_data)  # For debugging
-    return case_data
+        return case_data
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing case: {str(e)}")
 
 @app.delete("/cases/{case_id}")
 async def delete_case(case_id: str):
