@@ -11,3 +11,5 @@ mutagen
 python-dotenv
 uvicorn
 stanza
+SpeechRecognition
+pydub
