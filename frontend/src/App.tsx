@@ -7,6 +7,7 @@ import Watchlist from './pages/Watchlist';
 import Settings from './pages/Settings';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ThemeProvider from './components/theme/ThemeProvider';
+import { Toaster } from 'sonner';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
+      <Toaster/>
     </ThemeProvider>
   );
 }

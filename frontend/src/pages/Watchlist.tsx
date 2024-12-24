@@ -9,6 +9,7 @@ const API_BASE_URL = 'http://localhost:8000';
 
 const columns = [
   { key: 'id', header: 'ID' },
+  {key: 'user_id', header: 'User ID'},
   { key: 'name', header: 'Name' },
   { key: 'phoneNumber', header: 'Phone Number' },
   {

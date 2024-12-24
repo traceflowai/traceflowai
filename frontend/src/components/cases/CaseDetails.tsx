@@ -17,17 +17,17 @@ export default function CaseDetails({ caseData, onClose }: CaseDetailsProps) {
   const mockRiskFactors = [
     {
       name: 'Suspicious Keywords',
-      impact: 35,
+      impact: (caseData.riskScore / 3).toFixed(2),
       description: 'Multiple high-risk terms detected in conversation',
     },
     {
       name: 'Call Pattern',
-      impact: 25,
+      impact: (caseData.riskScore / 2).toFixed(2),
       description: 'Unusual timing and frequency of calls',
     },
     {
       name: 'Historical Data',
-      impact: 25,
+      impact: (caseData.riskScore / 6).toFixed(2),
       description: 'Previous suspicious activities detected',
     },
   ];

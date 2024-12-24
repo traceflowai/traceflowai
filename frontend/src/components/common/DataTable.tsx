@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { clsx } from 'clsx';
-import {Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
 interface Column<T> {
   key: keyof T;
@@ -13,16 +13,19 @@ interface DataTableProps<T> {
   columns: Column<T>[];
   onRowClick?: (item: T) => void;
   onDelete?: (item: T) => void;
+  onSearch?: (search: string) => void;
 }
 
 export default function DataTable<T>({
-  data,
+  data = [], // Default to an empty array
   columns,
   onRowClick,
   onDelete,
+  onSearch,
 }: DataTableProps<T>) {
   const [sortColumn, setSortColumn] = useState<keyof T | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Handle sorting logic
   const handleSort = (column: keyof T) => {
@@ -36,7 +39,7 @@ export default function DataTable<T>({
 
   // Sort data based on the selected column and direction
   const sortedData = [...data].sort((a, b) => {
-    if (!sortColumn) return 0; // No sorting if no column is selected
+    if (!sortColumn) return 0;
     const aValue = a[sortColumn];
     const bValue = b[sortColumn];
 
@@ -47,6 +50,20 @@ export default function DataTable<T>({
 
   return (
     <div className="overflow-x-auto">
+      {/* Search bar */}
+      <div className="mb-4">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            onSearch?.(e.target.value);
+          }}
+          className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg shadow-sm focus:border-blue-400 focus:ring focus:ring-blue-300 focus:ring-opacity-50 focus:outline-none hover:border-gray-400 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:border-blue-500 dark:focus:ring-blue-500 dark:focus:ring-opacity-50"
+          placeholder="Search..."
+        />
+      </div>
+
       <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
         <thead className="bg-gray-50 dark:bg-gray-800">
           <tr>
@@ -67,44 +84,40 @@ export default function DataTable<T>({
                 )}
               </th>
             ))}
-            {/* Add a header for the action buttons */}
             <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-white">
               Actions
             </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-          {sortedData.map((item, index) => (
+          {sortedData.map((item, idx) => (
             <tr
-              key={index}
+              key={idx}
               onClick={() => onRowClick?.(item)}
-              className={clsx(
-                'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700',
-                onRowClick && 'cursor-pointer'
-              )}
+              className="hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               {columns.map((column) => (
                 <td
                   key={String(column.key)}
-                  className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400"
+                  className="px-3 py-4 text-sm text-gray-900 dark:text-gray-200"
                 >
                   {column.render
                     ? column.render(item[column.key], item)
-                    : String(item[column.key])}
+                    : item[column.key]}
                 </td>
               ))}
-              {/* Action buttons for edit and delete */}
-              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent triggering row click
-                    onDelete?.(item);
-                  }}
-                  className="text-red-500 hover:text-red-700"
-                  title="Delete"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+              <td className="px-3 py-4 text-sm text-gray-900 dark:text-gray-200">
+                {onDelete && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(item);
+                    }}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <Trash2 />
+                  </button>
+                )}
               </td>
             </tr>
           ))}

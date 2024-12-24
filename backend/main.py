@@ -29,7 +29,7 @@ class CaseBase(BaseModel):
     flaggedKeywords: List[str] = []
     script: str 
     summary: str
-    duration: float
+    duration: str
     related_entities: List[str]
 
 class Case(CaseBase):
@@ -99,15 +99,17 @@ async def create_case(
         # Save the file temporarily for processing
         file_path = f"./tmp_wav"
         with open(file_path, "wb") as temp_file:
-            temp_file.write(await mp3file.read())
+            temp_file.write(await wavFile.read())
 
         # Use mutagen to calculate the duration
         audio = WAVE(file_path)
-        duration = audio.info.length  # Duration in seconds
+        duration = '{:02d}:{:02d}'.format(*divmod(floor(audio.info.length), 60))
         # Perform speech to text
         conversation = speech_to_text_func(file_path)
         if not conversation:
             raise HTTPException(status_code=400, detail="Failed to transcribe speech to text.")
+
+        print(conversation)
 
         # Extract related entities and score the conversation
         related_entities = extract_person_names(conversation)

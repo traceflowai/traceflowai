@@ -9,7 +9,7 @@ export interface Case {
   flaggedKeywords: string[];
   summary: string;
   script: string;
-  duration: number;
+  duration: string;
   related_entities: string[];
 }
 
