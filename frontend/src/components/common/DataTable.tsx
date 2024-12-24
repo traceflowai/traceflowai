@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { clsx } from 'clsx';
-import { Pen, Pencil, Trash2 } from 'lucide-react';
+import {Trash2 } from 'lucide-react';
 
 interface Column<T> {
   key: keyof T;
@@ -13,7 +13,6 @@ interface DataTableProps<T> {
   columns: Column<T>[];
   onRowClick?: (item: T) => void;
   onDelete?: (item: T) => void;
-  onEdit?: (item: T) => void; // New prop for edit functionality
 }
 
 export default function DataTable<T>({
@@ -21,7 +20,6 @@ export default function DataTable<T>({
   columns,
   onRowClick,
   onDelete,
-  onEdit,
 }: DataTableProps<T>) {
   const [sortColumn, setSortColumn] = useState<keyof T | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -96,17 +94,7 @@ export default function DataTable<T>({
                 </td>
               ))}
               {/* Action buttons for edit and delete */}
-              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400 flex space-x-4">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent triggering row click
-                    onEdit?.(item);
-                  }}
-                  className="text-blue-500 hover:text-blue-700"
-                  title="Edit"
-                >
-                  <Pencil className="w-5 h-5" />
-                </button>
+              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center">
                 <button
                   onClick={(e) => {
                     e.stopPropagation(); // Prevent triggering row click

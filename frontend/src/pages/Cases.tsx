@@ -106,6 +106,16 @@ export default function Cases() {
         data={cases}
         columns={columns}
         onRowClick={setSelectedCase}
+        onDelete={async (item) => {
+          const response = await fetch(`${API_BASE_URL}/cases/${item.id}`, {
+            method: 'DELETE',
+          });
+          if (!response.ok) {
+            throw new Error('Failed to delete case');
+          }
+          setCases((prev) => prev.filter((c) => c.id !== item.id));
+          toast.success('Case deleted successfully');
+        }}
       />
 
       {selectedCase && (

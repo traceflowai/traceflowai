@@ -7,7 +7,6 @@ pymongo[srv]
 fastapi
 pydantic
 motor
-bson
 mutagen
 python-dotenv
 uvicorn

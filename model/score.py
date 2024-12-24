@@ -1,5 +1,6 @@
 import stanza
 import csv
+import os
 
 # Load the Stanza pipeline for Hebrew
 stanza.download('he')
@@ -77,7 +78,9 @@ def normalize_score(score, max_score=500):
 
 
 def sentence_score(text):
-    suspicious_words_file = "model\suspicious_words.csv"
+    print("hi there")
+    project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    suspicious_words_file = f"{project_path}\model\suspicious_words.csv"
     suspicious_entries = preprocess_csv(suspicious_words_file)
     total_score, matched_phrases = analyze_text(text, suspicious_entries)
 

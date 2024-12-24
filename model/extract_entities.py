@@ -51,8 +51,6 @@ def extract_person_names(conversation):
     """
     Extracts and prints names of entities of type PER from the conversation.
     """
-
-    extract_person_names(conversation)
     model_name = "msperka/aleph_bert_gimmel-finetuned-ner"
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -72,3 +70,10 @@ def extract_person_names(conversation):
     return person_names
 
 
+if __name__ == '__main__':
+    conversation = """`
+    מיה: היי אדם, מה קורה?
+    אדם: היי מיה, הכול טוב. מה איתך?
+    מיה: סבבה, תודה. תגיד, ראית את יונתן היום?
+    """
+    print(extract_person_names(conversation))
