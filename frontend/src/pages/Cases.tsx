@@ -7,6 +7,7 @@ import AddCaseModal from '../components/cases/AddCaseModal';
 import { format } from 'date-fns';
 import { toast } from 'sonner'; // Recommended for better notifications
 import debounce from 'lodash/debounce';
+import { ClipLoader } from 'react-spinners';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -37,6 +38,7 @@ export default function Cases() {
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAddingCase, setIsAddingCase] = useState(false); // New state for adding case
 
   const fetchCases = useCallback(async () => {
     setIsLoading(true);
@@ -49,7 +51,6 @@ export default function Cases() {
         throw new Error('Failed to fetch cases');
       }
       const data = await response.json();
-      console.log(data);
       setCases(data);
       setFilteredCases(data); // Initialize filtered cases
     } catch (error) {
@@ -66,6 +67,7 @@ export default function Cases() {
   }, [fetchCases]);
 
   const handleAddCase = async (formData: FormData) => {
+    setIsAddingCase(true); // Set adding case loading
     try {
       const response = await fetch(`${API_BASE_URL}/cases`, {
         method: 'POST',
@@ -84,6 +86,8 @@ export default function Cases() {
       toast.error('Failed to add case', {
         description: error instanceof Error ? error.message : 'Unknown error',
       });
+    } finally {
+      setIsAddingCase(false); // Reset adding case loading
     }
   };
 
@@ -103,7 +107,6 @@ export default function Cases() {
 
   return (
     <div className="space-y-6">
-      {isLoading && <div>Loading cases...</div>}
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Cases</h1>
@@ -111,15 +114,18 @@ export default function Cases() {
             A list of all cases in your account including their status, severity, and details.
           </p>
         </div>
-        <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
-          <button
-            type="button"
-            onClick={() => setIsAddModalOpen(true)}
-            className="block rounded-md bg-primary-600 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            Add case
-          </button>
-        </div>
+        <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex sm:items-center sm:space-x-2">
+        {isAddingCase && (
+          <ClipLoader color="#2563EB" loading={isAddingCase} size={20} />
+        )}
+        <button
+          type="button"
+          onClick={() => setIsAddModalOpen(true)}
+          className="block rounded-md bg-primary-600 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          Add case
+        </button>
+      </div>
       </div>
 
       <DataTable
