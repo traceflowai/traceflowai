@@ -5,7 +5,7 @@ import StatusBadge from '../components/common/StatusBadge';
 import CaseDetails from '../components/cases/CaseDetails';
 import AddCaseModal from '../components/cases/AddCaseModal';
 import { format } from 'date-fns';
-import { toast, Toaster } from 'sonner'; // Recommended for better notifications
+import { toast } from 'sonner'; // Recommended for better notifications
 import debounce from 'lodash/debounce';
 
 const API_BASE_URL = 'http://localhost:8000';
@@ -49,6 +49,7 @@ export default function Cases() {
         throw new Error('Failed to fetch cases');
       }
       const data = await response.json();
+      console.log(data);
       setCases(data);
       setFilteredCases(data); // Initialize filtered cases
     } catch (error) {

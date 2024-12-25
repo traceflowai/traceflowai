@@ -1,4 +1,5 @@
 export interface Case {
+  wav_file_id: string;
   id: string;
   source: string;
   severity: 'low' | 'medium' | 'high';

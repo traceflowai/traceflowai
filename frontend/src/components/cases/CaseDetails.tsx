@@ -13,7 +13,7 @@ interface CaseDetailsProps {
 
 export default function CaseDetails({ caseData, onClose }: CaseDetailsProps) {
   if (!caseData) return null;
-
+  console.log(caseData);
   const mockRiskFactors = [
     {
       name: 'Suspicious Keywords',
@@ -95,6 +95,7 @@ export default function CaseDetails({ caseData, onClose }: CaseDetailsProps) {
                     sentiment="negative"
                     duration={caseData.duration.toString()}
                     timestamp={caseData.timestamp}
+                    waveFileId={caseData.wav_file_id}
                   />
                 </div>
               </Dialog.Panel>

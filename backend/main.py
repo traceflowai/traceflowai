@@ -10,6 +10,9 @@ import os
 from math import floor
 from dotenv import load_dotenv
 from bson import ObjectId
+import gridfs
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
+
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
@@ -17,7 +20,7 @@ from model.extract_entities import extract_person_names
 from model.score import sentence_score
 from model.speech_to_text import speech_to_text_func
 from model.transcript import summarize_text
-
+from fastapi.responses import StreamingResponse
 
 # Pydantic models
 class CaseBase(BaseModel):
@@ -32,6 +35,7 @@ class CaseBase(BaseModel):
     summary: str
     duration: str
     related_entities: List[str]
+    wav_file_id: str
 
 class Case(CaseBase):
     id: str  # Include MongoDB ObjectId as a string
@@ -72,6 +76,17 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+fs = AsyncIOMotorGridFSBucket(db)
+
+from tempfile import NamedTemporaryFile
+from fastapi import UploadFile, File, Form, HTTPException
+from typing import List, Optional
+import aiofiles
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 ############################################################################################################
 #cases
 
@@ -88,7 +103,19 @@ async def get_cases():
         raise HTTPException(status_code=500, detail=f"Error retrieving cases: {str(e)}")
     return cases
 
-@app.post("/cases")
+
+@app.get("/files/{file_id}")
+async def get_audio_file(file_id: str):
+    try:
+        print(file_id)
+        # Retrieve file from GridFS
+        grid_out = await fs.open_download_stream(ObjectId(file_id))
+        headers = {"Content-Disposition": f"attachment; filename={grid_out.filename}"}
+        return StreamingResponse(grid_out, media_type="audio/wav", headers=headers)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail="File not found")
+
+@app.post("/cases", response_model=Case)
 async def create_case(
     source: str = Form(...),
     type: str = Form(...),
@@ -96,56 +123,79 @@ async def create_case(
     status: str = Form(...),
     wavFile: UploadFile = File(...),
 ):
+
     try:
-        # Save the file temporarily for processing
-        file_path = f"./tmp_wav"
-        with open(file_path, "wb") as temp_file:
-            temp_file.write(await wavFile.read())
+        # Create temporary file
+        with NamedTemporaryFile(delete=False, suffix='.wav') as temp_file:
+            try:
+                # Read and validate file size
+                file_size = 0
+                async with aiofiles.open(temp_file.name, 'wb') as out_file:
+                    while chunk := await wavFile.read(8192):
+                        file_size += len(chunk)
+                        await out_file.write(chunk)
 
-        # Use mutagen to calculate the duration
-        audio = WAVE(file_path)
-        duration = '{:02d}:{:02d}'.format(*divmod(floor(audio.info.length), 60))
-        # Perform speech to text
-        conversation = speech_to_text_func(file_path)
-        if not conversation:
-            raise HTTPException(status_code=400, detail="Failed to transcribe speech to text.")
+                # Process audio file
+                audio = WAVE(temp_file.name)
+                duration = '{:02d}:{:02d}'.format(*divmod(floor(audio.info.length), 60))
 
-        print(conversation)
+                # Perform speech to text
+                conversation = speech_to_text_func(temp_file.name)
 
-        # Extract related entities and score the conversation, then summarize it
-        related_entities = extract_person_names(conversation)
-        score, flagged_keywords = sentence_score(conversation)
-        summary = summarize_text(conversation)
+                # Extract metadata
+                related_entities = extract_person_names(conversation)
+                score, flagged_keywords = sentence_score(conversation)
+                summary = summarize_text(conversation)
 
-        case_data = {
-            "source": source,
-            "severity": severity,
-            "status": status,
-            "type": type,
-            "timestamp": datetime.now(),
-            "riskScore": score,
-            "flaggedKeywords": flagged_keywords,
-            "script": conversation,
-            "summary": summary, 
-            "duration": duration,
-            "related_entities": related_entities
-        }
+                # Save to GridFS
+                async with aiofiles.open(temp_file.name, 'rb') as wav_file:
+                    file_content = await wav_file.read()
+                    file_id = await fs.upload_from_stream(
+                        filename=wavFile.filename,
+                        source=file_content
+                    )
 
-        # Remove temporary file
-        os.remove(file_path)
+                # Prepare case data
+                case_data = {
+                    "source": source,
+                    "severity": severity,
+                    "status": status,
+                    "type": type,
+                    "timestamp": datetime.now(),
+                    "riskScore": score,
+                    "flaggedKeywords": flagged_keywords,
+                    "script": conversation,
+                    "summary": summary,
+                    "duration": duration,
+                    "related_entities": related_entities,
+                    "wav_file_id": str(file_id)
+                }
 
-        # Insert case data into MongoDB
-        result = await collection_cases.insert_one(case_data)
-        case_data["id"] = str(result.inserted_id)  # Convert ObjectId to string
-        case_data.pop("_id", None)  # Remove MongoDB's _id field if present
+                # Insert into database
+                result = await collection_cases.insert_one(case_data)
+                case_data["id"] = str(result.inserted_id)
+                case_data.pop("_id", None)
+                
+                # Convert datetime for JSON serialization
+                case_data["timestamp"] = case_data["timestamp"].isoformat()
 
-        # Ensure all fields are JSON-serializable
-        case_data["timestamp"] = case_data["timestamp"].isoformat()  # Convert datetime to ISO 8601 string
+                return case_data
 
-        return case_data
+            finally:
+                # Clean up temporary file
+                try:
+                    os.unlink(temp_file.name)
+                except Exception as e:
+                    logger.error(f"Failed to delete temporary file: {str(e)}")
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing case: {str(e)}")
+        logger.error(f"Error processing case: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error while processing case"
+        )
 
 @app.delete("/cases/{case_id}")
 async def delete_case(case_id: str):

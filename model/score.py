@@ -78,7 +78,6 @@ def normalize_score(score, max_score=500):
 
 
 def sentence_score(text):
-    print("hi there")
     project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     suspicious_words_file = f"{project_path}\model\suspicious_words.csv"
     suspicious_entries = preprocess_csv(suspicious_words_file)
