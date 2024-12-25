@@ -16,6 +16,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from model.extract_entities import extract_person_names
 from model.score import sentence_score
 from model.speech_to_text import speech_to_text_func
+from model.transcript import summarize_text
 
 
 # Pydantic models
@@ -111,9 +112,10 @@ async def create_case(
 
         print(conversation)
 
-        # Extract related entities and score the conversation
+        # Extract related entities and score the conversation, then summarize it
         related_entities = extract_person_names(conversation)
         score, flagged_keywords = sentence_score(conversation)
+        summary = summarize_text(conversation)
 
         case_data = {
             "source": source,
@@ -123,9 +125,9 @@ async def create_case(
             "timestamp": datetime.now(),
             "riskScore": score,
             "flaggedKeywords": flagged_keywords,
-            "script": conversation,  # Placeholder, you can generate the script here if needed
-            "summary": "Generated summary placeholder",  # Placeholder, you can generate the summary here if needed
-            "duration": duration,  # Duration in seconds
+            "script": conversation,
+            "summary": summary, 
+            "duration": duration,
             "related_entities": related_entities
         }
 

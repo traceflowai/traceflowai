@@ -1,6 +1,7 @@
 # Environment and virtual environments
 .env
 venv/
+.venv/
 
 # Generated files and results
 results/

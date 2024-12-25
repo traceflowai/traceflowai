@@ -3,13 +3,14 @@ scikit-learn
 transformers
 datasets
 transformers[torch]
+motor
 pymongo[srv]
 fastapi
 pydantic
-motor
 mutagen
 python-dotenv
 uvicorn
 stanza
 SpeechRecognition
 pydub
+groq
