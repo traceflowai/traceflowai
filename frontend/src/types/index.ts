@@ -24,6 +24,7 @@ export interface Alert {
 
 export interface WatchlistEntry {
   id: string;
+  user_id: string;
   name: string;
   phoneNumber: string;
   riskLevel: 'low' | 'medium' | 'high';

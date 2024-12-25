@@ -5,6 +5,7 @@ interface CallSummaryProps {
   summary: string;
   transcript: string;
   keywords: string[];
+  entities: string[];
   sentiment: 'positive' | 'neutral' | 'negative';
   duration: string;
   timestamp: string;
@@ -20,6 +21,7 @@ export default function CallSummary({
   summary,
   transcript,
   keywords,
+  entities,
   sentiment,
   duration,
   timestamp,
@@ -78,6 +80,21 @@ export default function CallSummary({
             ))}
           </div>
         </div>
+
+        <div>
+          <p className="text-sm text-gray-500 mb-2">Mentioned entities</p>
+          <div className="flex flex-wrap gap-2">
+            {entities.map((entity) => (
+              <span
+                key={entity}
+                className="inline-flex items-center rounded-full bg-orange-200 px-2.5 py-0.5 text-xs font-medium text-red-900 hover:bg-blue-100"
+                >
+                {entity}
+              </span>
+            ))}
+          </div>
+        </div>
+
       </div>
     </div>
   );

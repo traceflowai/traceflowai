@@ -91,6 +91,7 @@ export default function CaseDetails({ caseData, onClose }: CaseDetailsProps) {
                     summary= {caseData.summary}
                     transcript={caseData.script}
                     keywords={caseData.flaggedKeywords || []}
+                    entities={caseData.related_entities || []}
                     sentiment="negative"
                     duration={caseData.duration.toString()}
                     timestamp={caseData.timestamp}
