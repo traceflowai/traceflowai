@@ -89,6 +89,7 @@ export default function CaseDetails({ caseData, onClose }: CaseDetailsProps) {
                   />
                   <CallSummary
                     summary= {caseData.summary}
+                    transcript={caseData.script}
                     keywords={caseData.flaggedKeywords || []}
                     sentiment="negative"
                     duration={caseData.duration.toString()}

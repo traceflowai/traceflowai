@@ -4,12 +4,13 @@ import StatusBadge from '../components/common/StatusBadge';
 import AddUserModal from '../components/watchlist/AddUserModal';
 import { toast, Toaster } from 'sonner'; // For notifications
 import { format } from 'date-fns';
+import debounce from 'lodash/debounce';
 
 const API_BASE_URL = 'http://localhost:8000';
 
 const columns = [
   { key: 'id', header: 'ID' },
-  {key: 'user_id', header: 'User ID'},
+  { key: 'user_id', header: 'User ID' },
   { key: 'name', header: 'Name' },
   { key: 'phoneNumber', header: 'Phone Number' },
   {
@@ -21,23 +22,25 @@ const columns = [
     key: 'lastMentioned',
     header: 'Last Mentioned',
     render: (value: string) => format(new Date(value), 'MMM d, yyyy HH:mm'),
-  }
+  },
 ];
 
 export default function Watchlist() {
   const [entries, setEntries] = useState([]);
+  const [filteredEntries, setFilteredEntries] = useState([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchEntries = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/watchlist`, { method: 'GET'});
+      const response = await fetch(`${API_BASE_URL}/watchlist`, { method: 'GET' });
       if (!response.ok) {
         throw new Error('Failed to fetch entries');
       }
       const data = await response.json();
       setEntries(data);
+      setFilteredEntries(data); // Initialize filtered entries
     } catch (error) {
       toast.error('Failed to fetch entries', {
         description: error instanceof Error ? error.message : 'Unknown error',
@@ -53,7 +56,6 @@ export default function Watchlist() {
 
   const handleAddEntry = async (formData: FormData) => {
     try {
-      console.log('formData', formData);
       const response = await fetch(`${API_BASE_URL}/watchlist`, {
         method: 'POST',
         body: formData,
@@ -65,6 +67,7 @@ export default function Watchlist() {
 
       const newEntry = await response.json();
       setEntries((prev) => [...prev, newEntry]);
+      setFilteredEntries((prev) => [...prev, newEntry]); // Update filtered entries
       toast.success('Entry added successfully');
     } catch (error) {
       toast.error('Failed to add entry', {
@@ -73,10 +76,9 @@ export default function Watchlist() {
     }
   };
 
-  const handleDeleteEntry = async (entry: string) => {
+  const handleDeleteEntry = async (entryId: string) => {
     try {
-      console.log('entryId', entry);
-      const response = await fetch(`${API_BASE_URL}/watchlist/${entry.id}`, {
+      const response = await fetch(`${API_BASE_URL}/watchlist/${entryId}`, {
         method: 'DELETE',
       });
 
@@ -84,7 +86,8 @@ export default function Watchlist() {
         throw new Error('Failed to delete entry');
       }
 
-      setEntries((prev) => prev.filter((_entry) => _entry.id !== entry.id));
+      setEntries((prev) => prev.filter((entry) => entry.id !== entryId));
+      setFilteredEntries((prev) => prev.filter((entry) => entry.id !== entryId)); // Update filtered entries
       toast.success('Entry deleted successfully');
     } catch (error) {
       toast.error('Failed to delete entry', {
@@ -92,6 +95,19 @@ export default function Watchlist() {
       });
     }
   };
+
+  const debouncedSearch = useCallback(
+    debounce((query) => {
+      const lowerCaseQuery = query.toLowerCase();
+      const filtered = entries.filter((entry) =>
+        entry.name.toLowerCase().includes(lowerCaseQuery) ||
+        entry.phoneNumber.toLowerCase().includes(lowerCaseQuery) ||
+        entry.user_id.toLowerCase().includes(lowerCaseQuery)
+      );
+      setFilteredEntries(filtered);
+    }, 300),
+    [entries]
+  );
 
   return (
     <div className="space-y-6">
@@ -115,9 +131,10 @@ export default function Watchlist() {
       </div>
 
       <DataTable
-        data={entries}
+        data={filteredEntries}
         columns={columns}
         onDelete={handleDeleteEntry}
+        onSearch={debouncedSearch}
       />
 
       <Toaster />

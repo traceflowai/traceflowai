@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { ChatBubbleLeftIcon } from '@heroicons/react/24/outline';
 
 interface CallSummaryProps {
   summary: string;
+  transcript: string;
   keywords: string[];
   sentiment: 'positive' | 'neutral' | 'negative';
   duration: string;
@@ -16,22 +18,34 @@ const sentimentColors = {
 
 export default function CallSummary({
   summary,
+  transcript,
   keywords,
   sentiment,
   duration,
   timestamp,
 }: CallSummaryProps) {
+  const [showTranscript, setShowTranscript] = useState(false);
+
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex items-center mb-4">
         <ChatBubbleLeftIcon className="h-6 w-6 text-gray-400" />
-        <h3 className="ml-2 text-lg font-medium text-gray-900">Call Summary</h3>
+        <h3 className="ml-2 text-lg font-medium text-gray-900">
+          {showTranscript ? 'Call Transcript' : 'Call Summary'}
+        </h3>
       </div>
 
       <div className="space-y-4">
         <div>
-          <p className="text-sm text-gray-500">Summary</p>
-          <p className="mt-1 text-sm text-gray-900">{summary}</p>
+          <p className="mt-1 text-sm text-gray-900 text-right">
+            {showTranscript ? transcript : summary}
+          </p>
+          <button
+            className="mt-2 text-sm text-blue-600 hover:underline"
+            onClick={() => setShowTranscript(!showTranscript)}
+          >
+            {showTranscript ? 'View Summary' : 'View Transcript'}
+          </button>
         </div>
 
         <div className="flex items-center justify-between">

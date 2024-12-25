@@ -146,7 +146,6 @@ export default function Cases() {
         />
       )}
 
-      {/* <Toaster /> */}
       <AddCaseModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}

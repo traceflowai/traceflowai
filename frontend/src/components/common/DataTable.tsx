@@ -52,7 +52,7 @@ export default function DataTable<T>({
     <div className="overflow-x-auto">
       {/* Search bar */}
       <div className="mb-4">
-        <input
+        {onSearch?<input
           type="text"
           value={searchQuery}
           onChange={(e) => {
@@ -61,7 +61,7 @@ export default function DataTable<T>({
           }}
           className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg shadow-sm focus:border-blue-400 focus:ring focus:ring-blue-300 focus:ring-opacity-50 focus:outline-none hover:border-gray-400 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:border-blue-500 dark:focus:ring-blue-500 dark:focus:ring-opacity-50"
           placeholder="Search..."
-        />
+        />:null}
       </div>
 
       <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
