@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { ChatBubbleLeftIcon } from "@heroicons/react/24/outline";
+import { API_BASE_URL } from "../../constants";
 
 interface CallSummaryProps {
   summary: string;
@@ -35,7 +36,7 @@ export default function CallSummary({
   const fetchAudioFile = useCallback(async () => {
     try {
       const response = await fetch(
-        `http://localhost:8000/files/${waveFileId}`,
+        `${API_BASE_URL}/files/${waveFileId}`,
         {
           method: "GET",
           mode: "cors",

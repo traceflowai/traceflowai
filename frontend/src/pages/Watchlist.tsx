@@ -5,8 +5,7 @@ import AddUserModal from '../components/watchlist/AddUserModal';
 import { toast, Toaster } from 'sonner'; // For notifications
 import { format } from 'date-fns';
 import debounce from 'lodash/debounce';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { API_BASE_URL } from '../constants';
 
 const columns = [
   { key: 'id', header: 'ID' },
