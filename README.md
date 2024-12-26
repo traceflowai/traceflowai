@@ -108,4 +108,4 @@ If you'd like to contribute, please fork the repository and create a pull reques
 ---
 
 ## Contact
-For questions or support, please contact [tracefloai@gmail.com].
+For questions or support, please contact [traceflowai@gmail.com].
