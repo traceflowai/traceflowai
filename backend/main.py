@@ -1,60 +1,32 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
-from datetime import datetime
-from fastapi import FastAPI, HTTPException , UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
-from mutagen.wave import WAVE
-import random
-import os
-from math import floor
-from dotenv import load_dotenv
-from bson import ObjectId
-import gridfs
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).resolve().parent.parent))
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
+from bson import ObjectId
+from mutagen.wave import WAVE
+from datetime import datetime
+from typing import List, Optional
+import os
+import aiofiles
+import logging
+from tempfile import NamedTemporaryFile
+from dotenv import load_dotenv
+from math import floor
+import gridfs
+
 from model.extract_entities import extract_person_names
 from model.score import sentence_score
 from model.speech_to_text import speech_to_text_func
 from model.transcript import summarize_text
-from fastapi.responses import StreamingResponse
-
-# Pydantic models
-class CaseBase(BaseModel):
-    source: str
-    severity: Optional[str] = "medium"  # Default severity
-    status: str
-    type: str
-    timestamp: datetime
-    riskScore: Optional[float] = 50.0  # Default riskScore
-    flaggedKeywords: List[str] = []
-    script: str 
-    summary: str
-    duration: str
-    related_entities: List[str]
-    wav_file_id: str
-
-class Case(CaseBase):
-    id: str  # Include MongoDB ObjectId as a string
 
 
-class UserBase(BaseModel):
-    user_id: str
-    name: str
-    phoneNumber: str
-    riskLevel: Optional[str] = "medium"  # Default riskLevel
-    lastMentioned: datetime  # Default lastMentioned
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-class User(UserBase):
-    id: str  # Include MongoDB ObjectId as a string
-
-# FastAPI application
-app = FastAPI()
-
-# MongoDB Configuration
+# Database Configuration
 load_dotenv()
 MONGO_URL = os.getenv("MONGO_URL")
 DB_NAME = "data"
@@ -65,50 +37,81 @@ client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 collection_cases = db[COLLECTION_NAME_CASES]
 collection_users = db[COLLECTION_NAME_USERS]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # React development server
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-)
-
 fs = AsyncIOMotorGridFSBucket(db)
 
-from tempfile import NamedTemporaryFile
-from fastapi import UploadFile, File, Form, HTTPException
-from typing import List, Optional
-import aiofiles
-import logging
+# Helper function for database error handling
+async def handle_database_error(error_message: str, exc: Exception):
+    logger.error(f"{error_message}: {str(exc)}")
+    raise HTTPException(status_code=500, detail=f"Internal server error: {str(exc)}")
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Helper function to convert MongoDB documents to dict
+def mongo_to_dict(doc):
+    doc["id"] = str(doc["_id"])
+    doc.pop("_id", None)
+    return doc
 
-############################################################################################################
-#cases
+# FastAPI application
+app = FastAPI()
 
+# Middleware for CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # React development server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Pydantic Models
+class CaseBase(BaseModel):
+    source: str
+    severity: Optional[str] = 'Medium'
+    status: Optional[str] = 'New'
+    type: str
+    timestamp: datetime
+    riskScore: Optional[float] = 50.0
+    flaggedKeywords: List[str] = []
+    script: str
+    summary: str
+    duration: str
+    related_entities: List[str]
+    wav_file_id: str
+
+class Case(CaseBase):
+    id: str  # Include MongoDB ObjectId as a string
+
+class UserBase(BaseModel):
+    user_id: str
+    name: str
+    phoneNumber: str
+    riskLevel: Optional[str] = "medium"
+    lastMentioned: datetime
+
+class User(UserBase):
+    id: str  # Include MongoDB ObjectId as a string
+
+# Helper function to save file to a temporary location
+async def save_file_to_temp(wavFile: UploadFile):
+    with NamedTemporaryFile(delete=False, suffix='.wav') as temp_file:
+        async with aiofiles.open(temp_file.name, 'wb') as out_file:
+            while chunk := await wavFile.read(8192):
+                await out_file.write(chunk)
+    return temp_file.name
+
+# Cases Endpoints
 @app.get("/cases", response_model=List[Case])
 async def get_cases():
     cases = []
     try:
         async for case in collection_cases.find():
-            case["id"] = str(case["_id"])  # Convert ObjectId to string
-            case.pop("_id", None)         # Remove MongoDB's ObjectId field
-            cases.append(case)
+            cases.append(mongo_to_dict(case))
     except Exception as e:
-        print(f"Error retrieving cases: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error retrieving cases: {str(e)}")
+        await handle_database_error("Error retrieving cases", e)
     return cases
-
 
 @app.get("/files/{file_id}")
 async def get_audio_file(file_id: str):
     try:
-        print(file_id)
-        # Retrieve file from GridFS
         grid_out = await fs.open_download_stream(ObjectId(file_id))
         headers = {"Content-Disposition": f"attachment; filename={grid_out.filename}"}
         return StreamingResponse(grid_out, media_type="audio/wav", headers=headers)
@@ -119,116 +122,107 @@ async def get_audio_file(file_id: str):
 async def create_case(
     source: str = Form(...),
     type: str = Form(...),
-    severity: str = Form(...),
-    status: str = Form(...),
     wavFile: UploadFile = File(...),
 ):
-
     try:
-        # Create temporary file
-        with NamedTemporaryFile(delete=False, suffix='.wav') as temp_file:
-            try:
-                # Read and validate file size
-                file_size = 0
-                async with aiofiles.open(temp_file.name, 'wb') as out_file:
-                    while chunk := await wavFile.read(8192):
-                        file_size += len(chunk)
-                        await out_file.write(chunk)
+        temp_file_name = await save_file_to_temp(wavFile)
 
-                # Process audio file
-                audio = WAVE(temp_file.name)
-                duration = '{:02d}:{:02d}'.format(*divmod(floor(audio.info.length), 60))
+        # Process audio file
+        audio = WAVE(temp_file_name)
+        duration = '{:02d}:{:02d}'.format(*divmod(floor(audio.info.length), 60))
 
-                # Perform speech to text
-                conversation = speech_to_text_func(temp_file.name)
+        # Perform speech to text
+        conversation = speech_to_text_func(temp_file_name)
 
-                # Extract metadata
-                related_entities = extract_person_names(conversation)
-                score, flagged_keywords = sentence_score(conversation)
-                summary = summarize_text(conversation)
+        # Extract metadata
+        related_entities = extract_person_names(conversation)
+        score, flagged_keywords = sentence_score(conversation)
+        summary = summarize_text(conversation)
 
-                # Save to GridFS
-                async with aiofiles.open(temp_file.name, 'rb') as wav_file:
-                    file_content = await wav_file.read()
-                    file_id = await fs.upload_from_stream(
-                        filename=wavFile.filename,
-                        source=file_content
-                    )
+        # Save to GridFS
+        async with aiofiles.open(temp_file_name, 'rb') as wav_file:
+            file_content = await wav_file.read()
+            file_id = await fs.upload_from_stream(
+                filename=wavFile.filename,
+                source=file_content
+            )
 
-                # Prepare case data
-                case_data = {
-                    "source": source,
-                    "severity": severity,
-                    "status": status,
-                    "type": type,
-                    "timestamp": datetime.now(),
-                    "riskScore": score,
-                    "flaggedKeywords": flagged_keywords,
-                    "script": conversation,
-                    "summary": summary,
-                    "duration": duration,
-                    "related_entities": related_entities,
-                    "wav_file_id": str(file_id)
-                }
+        # Determine severity based on score
+        severity = 'Low' if score < 30 else 'Medium' if score < 70 else 'High'
 
-                # Insert into database
-                result = await collection_cases.insert_one(case_data)
-                case_data["id"] = str(result.inserted_id)
-                case_data.pop("_id", None)
-                
-                # Convert datetime for JSON serialization
-                case_data["timestamp"] = case_data["timestamp"].isoformat()
+        # Prepare case data
+        case_data = {
+            "source": source,
+            "severity": severity,
+            "status": 'New',
+            "type": type,
+            "timestamp": datetime.now(),
+            "riskScore": score,
+            "flaggedKeywords": flagged_keywords,
+            "script": conversation,
+            "summary": summary,
+            "duration": duration,
+            "related_entities": related_entities,
+            "wav_file_id": str(file_id)
+        }
 
-                return case_data
+        # Insert into database
+        result = await collection_cases.insert_one(case_data)
+        case_data["id"] = str(result.inserted_id)
+        case_data.pop("_id", None)
 
-            finally:
-                # Clean up temporary file
-                try:
-                    os.unlink(temp_file.name)
-                except Exception as e:
-                    logger.error(f"Failed to delete temporary file: {str(e)}")
+        # Convert datetime for JSON serialization
+        case_data["timestamp"] = case_data["timestamp"].isoformat()
 
-    except HTTPException:
-        raise
+        return case_data
     except Exception as e:
-        logger.error(f"Error processing case: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail="Internal server error while processing case"
-        )
+        await handle_database_error("Error creating case", e)
 
 @app.delete("/cases/{case_id}")
 async def delete_case(case_id: str):
     try:
-        # Ensure case_id is a valid ObjectId
         if not ObjectId.is_valid(case_id):
             raise HTTPException(status_code=400, detail="Invalid case ID format")
-        
+
         result = await collection_cases.delete_one({"_id": ObjectId(case_id)})
         if result.deleted_count == 1:
             return {"message": "Case deleted successfully"}
         else:
             raise HTTPException(status_code=404, detail="Case not found")
     except Exception as e:
-        # Use logging instead of print for better error handling in production
-        import logging
-        logging.error(f"Error deleting case: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        await handle_database_error("Error deleting case", e)
 
-############################################################################################################
-#users
+@app.put("/cases/{case_id}")
+async def update_case(case_id: str, body: Request):
+    try:
+        data = await body.json()
+        status = data.get("status")
+        if not status:
+            raise HTTPException(status_code=400, detail="Status is required")
 
+        if not ObjectId.is_valid(case_id):
+            raise HTTPException(status_code=400, detail="Invalid case ID format")
+
+        result = await collection_cases.update_one(
+            {"_id": ObjectId(case_id)},
+            {"$set": {"status": status}}
+        )
+
+        if result.modified_count == 1:
+            return {"message": "Case updated successfully"}
+        raise HTTPException(status_code=404, detail="Case not found")
+    except Exception as e:
+        await handle_database_error("Error updating case", e)
+
+# Users Endpoints
 @app.get("/watchlist")
 async def get_users():
     users = []
     try:
         async for user in collection_users.find():
-            user["id"] = str(user["_id"])  # Convert ObjectId to string
-            user.pop("_id", None)         # Remove MongoDB's ObjectId field
-            users.append(user)
+            users.append(mongo_to_dict(user))
     except Exception as e:
-        print(f"Error retrieving users: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error retrieving users: {str(e)}")
+        await handle_database_error("Error retrieving users", e)
     return users
 
 @app.post("/watchlist")
@@ -237,40 +231,34 @@ async def create_user(
     name: str = Form(...),
     phoneNumber: str = Form(...),
     riskLevel: str = Form("medium"),
-    ):
-    # Prepare user data
+):
     user_data = {
         "user_id": id,
         "name": name,
         "phoneNumber": phoneNumber,
         "riskLevel": riskLevel,
-        "lastMentioned": datetime(1, 1, 1)  # Default value
+        "lastMentioned": datetime(1, 1, 1)
     }
 
-    # Insert user data into MongoDB
     try:
         result = await collection_users.insert_one(user_data)
-        user_data["id"] = str(result.inserted_id)  # Convert ObjectId to string
-        user_data.pop("_id", None)  # Remove MongoDB-specific "_id" field
+        user_data["id"] = str(result.inserted_id)
+        user_data.pop("_id", None)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        await handle_database_error("Error creating user", e)
 
     return user_data
 
 @app.delete("/watchlist/{user_id}")
 async def delete_user(user_id: str):
     try:
-        # Ensure user_id is a valid ObjectId
         if not ObjectId.is_valid(user_id):
             raise HTTPException(status_code=400, detail="Invalid user ID format")
-        
+
         result = await collection_users.delete_one({"_id": ObjectId(user_id)})
         if result.deleted_count == 1:
             return {"message": "User deleted successfully"}
         else:
             raise HTTPException(status_code=404, detail="User not found")
     except Exception as e:
-        # Use logging instead of print for better error handling in production
-        import logging
-        logging.error(f"Error deleting user: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        await handle_database_error("Error deleting user", e)

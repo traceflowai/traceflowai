@@ -12,7 +12,6 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
   const [formData, setFormData] = useState({
     source: '',
     type: '',
-    severity: 'medium' as 'low' | 'medium' | 'high',
   });
   const [audioFile, setAudioFile] = useState<File | null>(null);
 
@@ -42,9 +41,6 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
     // Append text fields
     submitFormData.append('source', formData.source);
     submitFormData.append('type', formData.type);
-    submitFormData.append('severity', formData.severity);
-    submitFormData.append('status', 'open');
-
     // Append audio file if exists
     if (audioFile) {
       submitFormData.append('wavFile', audioFile);
@@ -93,21 +89,6 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Severity
-            </label>
-            <select
-              value={formData.severity}
-              onChange={(e) => setFormData(prev => ({ ...prev, severity: e.target.value as 'low' | 'medium' | 'high' }))}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
           </div>
 
           <div>

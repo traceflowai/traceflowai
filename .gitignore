@@ -7,8 +7,12 @@ venv/
 results/
 
 # Python bytecode cache
-model/__pycache__/
-backend/__pycache__/
+__pycache__/
+*.pyc
+*.pyo
 
+# the models
 model/alephbert_fine_tuned/*
 model/ner_model/*
+
+

@@ -12,8 +12,8 @@ interface RiskPredictionProps {
 
 export default function RiskPrediction({ riskScore, factors }: RiskPredictionProps) {
   const riskLevel = useMemo(() => {
-    if (riskScore >= 80) return { level: 'High', color: 'text-red-600' };
-    if (riskScore >= 50) return { level: 'Medium', color: 'text-yellow-600' };
+    if (riskScore >= 70) return { level: 'High', color: 'text-red-600' };
+    if (riskScore >= 30) return { level: 'Medium', color: 'text-yellow-600' };
     return { level: 'Low', color: 'text-green-600' };
   }, [riskScore]);
 
@@ -33,7 +33,7 @@ export default function RiskPrediction({ riskScore, factors }: RiskPredictionPro
           <path
             d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
             fill="none"
-            stroke={riskScore >= 80 ? '#DC2626' : riskScore >= 50 ? '#D97706' : '#059669'}
+            stroke={riskScore >= 70 ? '#DC2626' : riskScore >= 30 ? '#D97706' : '#059669'}
             strokeWidth="3"
             strokeDasharray={`${riskScore}, 100`}
           />
