@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import KeywordManager from '../components/settings/KeywordManager';
 import { useThemeStore } from '../store/theme';
 
 const settingsSections = [
@@ -34,11 +35,18 @@ const settingsSections = [
         description: 'Use dark theme',
         type: 'toggle',
       },
+    ],
+  },
+  {
+    id: 'system',
+    title: 'System Configuration',
+    description: 'Configure system settings and integrations.',
+    settings: [
       {
-        id: 'compact-view',
-        label: 'Compact View',
-        description: 'Show more items per page',
-        type: 'toggle',
+        id: 'keywords',
+        label: 'Keywords',
+        description: 'Manage your keyword list',
+        type: 'button',
       },
     ],
   },
@@ -48,9 +56,9 @@ export default function Settings() {
   const [settings, setSettings] = useState({
     'email-alerts': true,
     'alert-threshold': 75,
-    'compact-view': false,
   });
-  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
   const toggleDarkMode = useThemeStore((state) => state.toggleDarkMode);
 
@@ -60,6 +68,14 @@ export default function Settings() {
     } else {
       setSettings((prev) => ({ ...prev, [id]: value }));
     }
+  };
+
+  const handleOpenModal = () => {
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
   };
 
   return (
@@ -118,7 +134,7 @@ export default function Settings() {
                         } inline-block h-6 w-6 transform rounded-full bg-white shadow transition duration-200 ease-in-out`}
                       />
                     </button>
-                  ) : (
+                  ) : setting.type === 'number' ? (
                     <input
                       type="number"
                       id={setting.id}
@@ -130,6 +146,14 @@ export default function Settings() {
                       }
                       className="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                     />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleOpenModal}
+                      className="text-primary-600 hover:underline"
+                    >
+                      {setting.label}
+                    </button>
                   )}
                 </div>
               ))}
@@ -137,6 +161,8 @@ export default function Settings() {
           </div>
         ))}
       </div>
+
+      <KeywordManager isOpen={isModalOpen} onClose={handleCloseModal} />
     </div>
   );
 }
