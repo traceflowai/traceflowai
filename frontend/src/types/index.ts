@@ -8,6 +8,7 @@ export interface Case {
   timestamp: string;
   riskScore: number;
   flaggedKeywords: string[];
+  reason: string[];
   summary: string;
   script: string;
   duration: string;

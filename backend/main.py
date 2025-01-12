@@ -71,6 +71,7 @@ class CaseBase(BaseModel):
     timestamp: datetime
     riskScore: Optional[float] = 50.0
     flaggedKeywords: List[str] = []
+    reason: List[str] = []
     script: str
     summary: str
     duration: str
@@ -140,7 +141,7 @@ async def create_case(
 
         # Extract metadata
         related_entities = extract_person_names(conversation)
-        score, flagged_keywords = sentence_score(conversation)
+        score, flagged_keywords, categories = sentence_score(conversation)
         summary = summarize_text(conversation)
 
         # Save to GridFS
@@ -152,7 +153,7 @@ async def create_case(
             )
 
         # Determine severity based on score
-        severity = 'Low' if score < 30 else 'Medium' if score < 70 else 'High'
+        severity = 'low' if score < 30 else 'medium' if score < 70 else 'high'
 
         # Prepare case data
         case_data = {
@@ -163,6 +164,7 @@ async def create_case(
             "timestamp": datetime.now(),
             "riskScore": score,
             "flaggedKeywords": flagged_keywords,
+            "reason": categories,
             "script": conversation,
             "summary": summary,
             "duration": duration,

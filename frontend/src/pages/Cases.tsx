@@ -6,7 +6,6 @@ import CaseDetails from '../components/cases/CaseDetails';
 import AddCaseModal from '../components/cases/AddCaseModal';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import debounce from 'lodash/debounce';
 import { ClipLoader } from 'react-spinners';
 import { API_BASE_URL } from '../constants';
 
@@ -178,20 +177,6 @@ export default function Cases() {
     }
   };
 
-  const debouncedSearch = useCallback(
-    debounce((query) => {
-      const lowerCaseQuery = query.toLowerCase();
-      const filtered = cases.filter((caseItem) =>
-        caseItem.flaggedKeywords.some((keyword) =>
-          keyword.toLowerCase().includes(lowerCaseQuery)
-        ) ||
-        caseItem.source.toLowerCase().includes(lowerCaseQuery)
-      );
-      setFilteredCases(filtered);
-    }, 300),
-    [cases]
-  );
-
   return (
     <div className="space-y-6">
       <div className="sm:flex sm:items-center">
@@ -225,8 +210,27 @@ export default function Cases() {
           columns={columns}
           onRowClick={setSelectedCase}
           onDelete={handleDeleteCase}
-          onSearch={debouncedSearch}
+          onSearch={(query, filters) => {
+            const lowerCaseQuery = query.toLowerCase();
+
+            setFilteredCases(
+              cases.filter((caseItem) => {
+                const matchesQuery =
+                  caseItem.flaggedKeywords.some((keyword) =>
+                    keyword.toLowerCase().includes(lowerCaseQuery)
+                  ) || caseItem.source.toLowerCase().includes(lowerCaseQuery);
+
+                const matchesFilters =
+                  filters.length === 0 ||
+                  filters.some((filter) => caseItem.reason.includes(filter));
+
+                return matchesQuery && matchesFilters;
+              })
+            );
+          }}
+          filters={['הלבנת הון', 'סמים', 'שחיתות', 'טרור']} // Example filters
         />
+
       )}
 
       {selectedCase && (
