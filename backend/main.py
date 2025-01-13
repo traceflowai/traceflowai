@@ -92,7 +92,8 @@ class User(UserBase):
     id: str  # Include MongoDB ObjectId as a string
 
 class BadWordsUpdate(BaseModel):
-    new_badwords: str
+    word: str
+    category: str
     score: int
 
 # Helper function to save file to a temporary location
@@ -283,38 +284,57 @@ async def get_badwords():
     except Exception as e:
         raise HTTPException(status_code=500, detail="An error occurred while retrieving bad words")
 
-
 # Add a new bad word
 @app.post("/badwords/add")
 async def add_badwords(new_badwords: BadWordsUpdate):
     try:
         with open('model/suspicious_words.csv', 'a', encoding='utf-8') as file:
-            file.write(f"{new_badwords.new_badwords},{new_badwords.score}\n")
+            file.write(f"{new_badwords.word},{new_badwords.category},{new_badwords.score}\n")
         return {"message": "Bad word added successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail="An error occurred while adding bad word")
+        raise HTTPException(status_code=500, detail=f"An error occurred while adding bad word: {str(e)}")
 
 @app.post("/badwords/update/{id}")
 async def update_badwords(id: int, data: BadWordsUpdate):
-    try:
+    try:        
         with open('model/suspicious_words.csv', 'r', encoding='utf-8') as file:
             badwords = file.readlines()
 
-        if id >= len(badwords):
+        # Validate the ID
+        if id < 0 or id >= len(badwords):
             raise HTTPException(status_code=404, detail="Bad word not found")
 
         # Update the specific line with new data
-        badwords[id] = f"{data.new_badwords},{data.score}\n"
+        badwords[id] = f"{data.word},{data.category},{data.score}\n"
 
         with open('model/suspicious_words.csv', 'w', encoding='utf-8') as file:
             file.writelines(badwords)
 
         return {"message": "Bad word updated successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"An error occurred while updating bad word: {str(e)}")
 
+# Delete an existing bad word
 @app.delete("/badwords/delete/{id}")
 async def delete_badwords(id: int):
+    try:
+        with open('model/suspicious_words.csv', 'r', encoding='utf-8') as file:
+            badwords = file.readlines()
+
+        # Validate the ID
+        if id < 0 or id >= len(badwords):
+            raise HTTPException(status_code=404, detail="Bad word not found")
+
+        # Remove the specific line
+        del badwords[id]
+
+        with open('model/suspicious_words.csv', 'w', encoding='utf-8') as file:
+            file.writelines(badwords)
+
+        return {"message": "Bad word deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred while deleting bad word: {str(e)}")
+
     try:
         with open('model/suspicious_words.csv', 'r', encoding='utf-8') as file:
             badwords = file.readlines()

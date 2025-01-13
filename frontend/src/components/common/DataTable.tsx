@@ -189,7 +189,8 @@ export default function DataTable<T>({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onDelete(item);
+                    console.log('delete', item);
+                    onDelete(item.id);
                   }}
                   className="text-red-500 hover:text-red-700"
                 >
