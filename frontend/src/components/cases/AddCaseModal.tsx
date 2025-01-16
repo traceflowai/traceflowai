@@ -1,6 +1,7 @@
-import React, { useState, ChangeEvent } from 'react';
+import React, { useState, useEffect, ChangeEvent } from 'react';
 import { X, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { API_BASE_URL } from '../../constants';
 
 interface AddCaseModalProps {
   isOpen: boolean;
@@ -14,6 +15,27 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
     type: '',
   });
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [users, setUsers] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      // Fetch the list of users when the modal is opened
+      fetch(`${API_BASE_URL}/watchlist`)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('Failed to fetch users');
+          }
+          return response.json();
+        })
+        .then((data) => {
+          setUsers(data); // Assume data is an array of strings
+        })
+        .catch((error) => {
+          console.error('Error fetching users:', error);
+          toast('Failed to load user list.');
+        });
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -30,14 +52,13 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
       }
     }
   };
-  
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     // Create FormData to send both file and text fields
     const submitFormData = new FormData();
-    
+
     // Append text fields
     submitFormData.append('source', formData.source);
     submitFormData.append('type', formData.type);
@@ -69,13 +90,19 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
             <label className="block text-sm font-medium text-gray-700">
               Source
             </label>
-            <input
-              type="text"
+            <select
               value={formData.source}
-              onChange={(e) => setFormData(prev => ({ ...prev, source: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, source: e.target.value }))}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
-            />
+            >
+              <option value="" disabled>Select a user</option>
+              {users.map((user, index) => (
+                <option key={index} value={user.name}>
+                  {user.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -85,7 +112,7 @@ export default function AddCaseModal({ isOpen, onClose, onSubmit }: AddCaseModal
             <input
               type="text"
               value={formData.type}
-              onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, type: e.target.value }))}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />

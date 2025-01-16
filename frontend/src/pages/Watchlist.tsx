@@ -75,9 +75,9 @@ export default function Watchlist() {
     }
   };
 
-  const handleDeleteEntry = async (entryId: string) => {
+  const handleDeleteEntry = async (entryToDelete: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/watchlist/${entryId}`, {
+      const response = await fetch(`${API_BASE_URL}/watchlist/${entryToDelete.id}`, {
         method: 'DELETE',
       });
 
@@ -85,8 +85,8 @@ export default function Watchlist() {
         throw new Error('Failed to delete entry');
       }
 
-      setEntries((prev) => prev.filter((entry) => entry.id !== entryId));
-      setFilteredEntries((prev) => prev.filter((entry) => entry.id !== entryId)); // Update filtered entries
+      setEntries((prev) => prev.filter((entry) => entry.id !== entryToDelete.id));
+      setFilteredEntries((prev) => prev.filter((entry) => entry.id !== entryToDelete.id)); // Update filtered entries
       toast.success('Entry deleted successfully');
     } catch (error) {
       toast.error('Failed to delete entry', {
