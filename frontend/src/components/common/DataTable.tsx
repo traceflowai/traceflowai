@@ -190,7 +190,7 @@ export default function DataTable<T>({
                   onClick={(e) => {
                     e.stopPropagation();
                     console.log('delete', item);
-                    onDelete(item.id);
+                    onDelete(item);
                   }}
                   className="text-red-500 hover:text-red-700"
                 >
