@@ -14,3 +14,5 @@ stanza
 SpeechRecognition
 pydub
 groq
+aiofiles
+python-multipart

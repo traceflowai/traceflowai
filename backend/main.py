@@ -14,7 +14,6 @@ import logging
 from tempfile import NamedTemporaryFile
 from dotenv import load_dotenv
 from math import floor
-import gridfs
 
 from model.extract_entities import extract_person_names
 from model.score import sentence_score

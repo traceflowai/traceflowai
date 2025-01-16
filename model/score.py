@@ -3,7 +3,7 @@ import csv
 import os
 
 # Load the Stanza pipeline for Hebrew
-# stanza.download('he') #only needs to be run once
+stanza.download('he') #only needs to be run once
 nlp = stanza.Pipeline(lang='he', processors='tokenize,mwt,pos,lemma')
 
 def preprocess_csv(file_path):
