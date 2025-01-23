@@ -10,7 +10,6 @@ from datetime import datetime
 from typing import List, Optional
 import os
 import aiofiles
-import logging
 from tempfile import NamedTemporaryFile
 from dotenv import load_dotenv
 from math import floor
@@ -19,11 +18,6 @@ from model.extract_entities import extract_person_names
 from model.score import sentence_score
 from model.speech_to_text import speech_to_text_func
 from model.transcript import summarize_text
-
-
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Database Configuration
 load_dotenv()
@@ -40,7 +34,6 @@ fs = AsyncIOMotorGridFSBucket(db)
 
 # Helper function for database error handling
 async def handle_database_error(error_message: str, exc: Exception):
-    logger.error(f"{error_message}: {str(exc)}")
     raise HTTPException(status_code=500, detail=f"Internal server error: {str(exc)}")
 
 # Helper function to convert MongoDB documents to dict
@@ -333,20 +326,3 @@ async def delete_badwords(id: int):
         return {"message": "Bad word deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred while deleting bad word: {str(e)}")
-
-    try:
-        with open('model/suspicious_words.csv', 'r', encoding='utf-8') as file:
-            badwords = file.readlines()
-
-        if id >= len(badwords):
-            raise HTTPException(status_code=404, detail="Bad word not found")
-
-        # Remove the specified line
-        del badwords[id]
-
-        with open('model/suspicious_words.csv', 'w', encoding='utf-8') as file:
-            file.writelines(badwords)
-
-        return {"message": "Bad word deleted successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))

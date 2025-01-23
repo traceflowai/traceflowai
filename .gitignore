@@ -15,4 +15,5 @@ __pycache__/
 model/alephbert_fine_tuned/*
 model/ner_model/*
 
-
+#the vectors of word2vec
+model/words_vectors.npy
