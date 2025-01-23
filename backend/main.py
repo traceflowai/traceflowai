@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 from math import floor
 
 from model.extract_entities import extract_person_names
-from model.score import sentence_score
+from model.score import SuspiciousWordDetector
 from model.speech_to_text import speech_to_text_func
 from model.transcript import summarize_text
 
@@ -31,6 +31,12 @@ db = client[DB_NAME]
 collection_cases = db[COLLECTION_NAME_CASES]
 collection_users = db[COLLECTION_NAME_USERS]
 fs = AsyncIOMotorGridFSBucket(db)
+
+
+detector = SuspiciousWordDetector(
+    vectors_path="model/words_vectors.npy",
+    vocab_path="model/words_list.txt"
+)
 
 # Helper function for database error handling
 async def handle_database_error(error_message: str, exc: Exception):
@@ -134,7 +140,8 @@ async def create_case(
 
         # Extract metadata
         related_entities = extract_person_names(conversation)
-        score, flagged_keywords, categories = sentence_score(conversation)
+        score, flagged_keywords, categories = detector.calculate_score(conversation)
+        detector.add_related_words(flagged_keywords if len(flagged_keywords) <3 else flagged_keywords[:3])
         summary = summarize_text(conversation)
 
         # Save to GridFS
