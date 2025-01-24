@@ -67,6 +67,8 @@ class SuspiciousWordDetector:
         new_entries = []
 
         for word in new_words:
+            if len(new_entries) >= 5:# Limit the number of new entries to 5
+                break
             similar_words = self._find_similar_words(word, topn, similarity_threshold)
             for similar_word in similar_words:
                 similar_word = similar_word.replace('~', ' ')  # Replace '~' with a space
@@ -80,7 +82,6 @@ class SuspiciousWordDetector:
                 writer.writerows(new_entries)
             # Reload suspicious entries
             self.suspicious_entries = self._load_suspicious_entries()
-
 
     def _normalize_score(self, score: int, max_score: int = 600) -> int:
         """Normalize the score to a scale of 0 to 100."""

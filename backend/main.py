@@ -1,23 +1,32 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
 from bson import ObjectId
 from mutagen.wave import WAVE
 from datetime import datetime
-from typing import List, Optional
+from typing import List
+
 import os
 import aiofiles
+import asyncio
+import threading
+from functools import partial
+from concurrent.futures import ThreadPoolExecutor
 from tempfile import NamedTemporaryFile
-from dotenv import load_dotenv
 from math import floor
+from dotenv import load_dotenv
 
 from model.extract_entities import extract_person_names
 from model.score import SuspiciousWordDetector
 from model.speech_to_text import speech_to_text_func
 from model.transcript import summarize_text
+
+from .types import *
+
+# Global thread pool for CPU-bound tasks
+CPU_BOUND_EXECUTOR = ThreadPoolExecutor(max_workers=os.cpu_count() * 2)
 
 # Database Configuration
 load_dotenv()
@@ -26,81 +35,113 @@ DB_NAME = "data"
 COLLECTION_NAME_CASES = "cases"
 COLLECTION_NAME_USERS = "users"
 
+# Database setup
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 collection_cases = db[COLLECTION_NAME_CASES]
 collection_users = db[COLLECTION_NAME_USERS]
 fs = AsyncIOMotorGridFSBucket(db)
 
-
+# Suspicious word detector model
 detector = SuspiciousWordDetector(
     vectors_path="model/words_vectors.npy",
     vocab_path="model/words_list.txt"
 )
 
-# Helper function for database error handling
-async def handle_database_error(error_message: str, exc: Exception):
-    raise HTTPException(status_code=500, detail=f"Internal server error: {str(exc)}")
-
-# Helper function to convert MongoDB documents to dict
+# Helper function for converting MongoDB documents
 def mongo_to_dict(doc):
     doc["id"] = str(doc["_id"])
     doc.pop("_id", None)
     return doc
 
-# FastAPI application
-app = FastAPI()
-
-# Middleware for CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # React development server
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Pydantic Models
-class CaseBase(BaseModel):
-    source: str
-    severity: Optional[str] = 'Medium'
-    status: Optional[str] = 'New'
-    type: str
-    timestamp: datetime
-    riskScore: Optional[float] = 50.0
-    flaggedKeywords: List[str] = []
-    reason: List[str] = []
-    script: str
-    summary: str
-    duration: str
-    related_entities: List[str]
-    wav_file_id: str
-
-class Case(CaseBase):
-    id: str  # Include MongoDB ObjectId as a string
-
-class UserBase(BaseModel):
-    user_id: str
-    name: str
-    phoneNumber: str
-    riskLevel: Optional[str] = "medium"
-    lastMentioned: datetime
-
-class User(UserBase):
-    id: str  # Include MongoDB ObjectId as a string
-
-class BadWordsUpdate(BaseModel):
-    word: str
-    category: str
-    score: int
-
-# Helper function to save file to a temporary location
-async def save_file_to_temp(wavFile: UploadFile):
+# Helper function to save file to temporary location
+async def save_file_to_temp(wavFile: UploadFile)-> str:
     with NamedTemporaryFile(delete=False, suffix='.wav') as temp_file:
         async with aiofiles.open(temp_file.name, 'wb') as out_file:
             while chunk := await wavFile.read(8192):
                 await out_file.write(chunk)
     return temp_file.name
+
+# Audio processing function
+async def process_audio_file(temp_file_name: str):
+    loop = asyncio.get_event_loop()
+    
+    duration_task = loop.run_in_executor(
+        CPU_BOUND_EXECUTOR, 
+        partial(get_audio_duration, temp_file_name)
+    )
+    conversation_task = loop.run_in_executor(
+        CPU_BOUND_EXECUTOR, 
+        speech_to_text_func, 
+        temp_file_name
+    )
+    
+    duration, conversation = await asyncio.gather(duration_task, conversation_task)
+    return duration, conversation
+
+def get_audio_duration(file_path: str) -> str:
+    audio = WAVE(file_path)
+    return '{:02d}:{:02d}'.format(*divmod(floor(audio.info.length), 60))
+
+# Metadata extraction function
+async def extract_metadata_and_score(conversation: str):
+    loop = asyncio.get_event_loop()
+
+    # Run tasks concurrently with CPU_BOUND_EXECUTOR
+    related_entities_future = loop.run_in_executor(CPU_BOUND_EXECUTOR, extract_person_names, conversation)
+    score_details_future = loop.run_in_executor(CPU_BOUND_EXECUTOR, detector.calculate_score, conversation)
+    summary_future = loop.run_in_executor(CPU_BOUND_EXECUTOR, summarize_text, conversation)
+
+    # Wait for all tasks to complete
+    related_entities, score_details, summary = await asyncio.gather(
+        related_entities_future, 
+        score_details_future, 
+        summary_future
+    )
+
+    # Unpack score details
+    score, flagged_keywords, categories = score_details
+
+    # Optional background task for related words
+    def background_task():
+        try:
+            detector.add_related_words(flagged_keywords)
+        except Exception as e:
+            print(f"Background task error: {e}")
+
+    threading.Thread(target=background_task, daemon=True).start()
+
+    return related_entities, {
+        "score": score,
+        "flagged_keywords": flagged_keywords,
+        "categories": categories
+    }, summary
+
+# Save audio to GridFS
+async def save_audio_to_gridfs(temp_file_name: str, filename: str):
+    async with aiofiles.open(temp_file_name, 'rb') as wav_file:
+        file_content = await wav_file.read()
+        return await fs.upload_from_stream(filename=filename, source=file_content)
+
+# Severity determination
+def determine_severity(score: int) -> str:
+    if score < 30:
+        return 'low'
+    elif score < 70:
+        return 'medium'
+    return 'high'
+
+# FastAPI application
+app = FastAPI()
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Cases Endpoints
 @app.get("/cases", response_model=List[Case])
@@ -110,7 +151,7 @@ async def get_cases():
         async for case in collection_cases.find():
             cases.append(mongo_to_dict(case))
     except Exception as e:
-        await handle_database_error("Error retrieving cases", e)
+        raise HTTPException(status_code=500, detail=f"Error retrieving cases: {str(e)}")
     return cases
 
 @app.get("/files/{file_id}")
@@ -130,59 +171,38 @@ async def create_case(
 ):
     try:
         temp_file_name = await save_file_to_temp(wavFile)
+        print(f"Saved file to {temp_file_name}")
+        duration, conversation = await process_audio_file(temp_file_name)
+        
+        related_entities, score_details, summary = await extract_metadata_and_score(conversation)
+        file_id = await save_audio_to_gridfs(temp_file_name, wavFile.filename)
 
-        # Process audio file
-        audio = WAVE(temp_file_name)
-        duration = '{:02d}:{:02d}'.format(*divmod(floor(audio.info.length), 60))
-
-        # Perform speech to text
-        conversation = speech_to_text_func(temp_file_name)
-
-        # Extract metadata
-        related_entities = extract_person_names(conversation)
-        score, flagged_keywords, categories = detector.calculate_score(conversation)
-        detector.add_related_words(flagged_keywords if len(flagged_keywords) <3 else flagged_keywords[:3])
-        summary = summarize_text(conversation)
-
-        # Save to GridFS
-        async with aiofiles.open(temp_file_name, 'rb') as wav_file:
-            file_content = await wav_file.read()
-            file_id = await fs.upload_from_stream(
-                filename=wavFile.filename,
-                source=file_content
-            )
-
-        # Determine severity based on score
-        severity = 'low' if score < 30 else 'medium' if score < 70 else 'high'
-
-        # Prepare case data
         case_data = {
             "source": source,
-            "severity": severity,
-            "status": 'New',
+            "severity": determine_severity(score_details["score"]),
+            "status": 'new',
             "type": type,
             "timestamp": datetime.now(),
-            "riskScore": score,
-            "flaggedKeywords": flagged_keywords,
-            "reason": categories,
+            "riskScore": score_details["score"],
+            "flaggedKeywords": score_details["flagged_keywords"],
+            "reason": score_details["categories"],
             "script": conversation,
             "summary": summary,
             "duration": duration,
             "related_entities": related_entities,
-            "wav_file_id": str(file_id)
+            "wav_file_id": str(file_id),
         }
 
-        # Insert into database
         result = await collection_cases.insert_one(case_data)
         case_data["id"] = str(result.inserted_id)
         case_data.pop("_id", None)
-
-        # Convert datetime for JSON serialization
         case_data["timestamp"] = case_data["timestamp"].isoformat()
 
         return case_data
+    
     except Exception as e:
-        await handle_database_error("Error creating case", e)
+        print(e)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/cases/{case_id}")
 async def delete_case(case_id: str):
@@ -196,7 +216,7 @@ async def delete_case(case_id: str):
         else:
             raise HTTPException(status_code=404, detail="Case not found")
     except Exception as e:
-        await handle_database_error("Error deleting case", e)
+        raise HTTPException(status_code=500, detail=f"Error deleting case: {str(e)}")
 
 @app.put("/cases/{case_id}")
 async def update_case(case_id: str, body: Request):
@@ -218,7 +238,7 @@ async def update_case(case_id: str, body: Request):
             return {"message": "Case updated successfully"}
         raise HTTPException(status_code=404, detail="Case not found")
     except Exception as e:
-        await handle_database_error("Error updating case", e)
+        raise HTTPException(status_code=500, detail=f"Error updating case: {str(e)}")
 
 # Users Endpoints
 @app.get("/watchlist")
@@ -228,7 +248,7 @@ async def get_users():
         async for user in collection_users.find():
             users.append(mongo_to_dict(user))
     except Exception as e:
-        await handle_database_error("Error retrieving users", e)
+        raise HTTPException(status_code=500, detail=f"Error retrieving users: {str(e)}")
     return users
 
 @app.post("/watchlist")
@@ -251,7 +271,7 @@ async def create_user(
         user_data["id"] = str(result.inserted_id)
         user_data.pop("_id", None)
     except Exception as e:
-        await handle_database_error("Error creating user", e)
+        raise HTTPException(status_code=500, detail=f"Error creating user: {str(e)}")
 
     return user_data
 
@@ -267,17 +287,14 @@ async def delete_user(user_id: str):
         else:
             raise HTTPException(status_code=404, detail="User not found")
     except Exception as e:
-        await handle_database_error("Error deleting user", e)
-
+        raise HTTPException(status_code=500, detail=f"Error deleting user: {str(e)}")
 
 @app.get("/badwords")
 async def get_badwords():
     try:
         with open('model/suspicious_words.csv', 'r', encoding='utf-8') as file:
             file.readline()  # Skip header
-            # Read and strip trailing spaces while preserving valid content
             badwords = ''.join(line.rstrip() + '\n' for line in file if line.strip())
-            # Remove the last newline if it exists
             badwords = badwords.rstrip()
         return {"badwords": badwords}
     except Exception as e:
@@ -299,11 +316,9 @@ async def update_badwords(id: int, data: BadWordsUpdate):
         with open('model/suspicious_words.csv', 'r', encoding='utf-8') as file:
             badwords = file.readlines()
 
-        # Validate the ID
         if id < 0 or id >= len(badwords):
             raise HTTPException(status_code=404, detail="Bad word not found")
 
-        # Update the specific line with new data
         badwords[id] = f"{data.word},{data.category},{data.score}\n"
 
         with open('model/suspicious_words.csv', 'w', encoding='utf-8') as file:
@@ -320,11 +335,9 @@ async def delete_badwords(id: int):
         with open('model/suspicious_words.csv', 'r', encoding='utf-8') as file:
             badwords = file.readlines()
 
-        # Validate the ID
         if id < 0 or id >= len(badwords):
             raise HTTPException(status_code=404, detail="Bad word not found")
 
-        # Remove the specific line
         del badwords[id]
 
         with open('model/suspicious_words.csv', 'w', encoding='utf-8') as file:
