@@ -1,41 +1,26 @@
+from gensim.models import KeyedVectors
 import os
 import csv
 import stanza
-import numpy as np
-from typing import List, Tuple, Dict
-from collections import defaultdict
-from sklearn.metrics.pairwise import cosine_similarity
+from typing import List, Tuple
 
 
 class SuspiciousWordDetector:
-    def __init__(self, lang='he', vectors_path=None, vocab_path=None):
+    def __init__(self, lang='he', binary_file_path=None):
         """Initialize Stanza pipeline and load required resources."""
         stanza.download(lang)
         self.nlp = stanza.Pipeline(lang=lang, processors='tokenize,mwt,pos,lemma')
         self.project_path = os.path.dirname(os.path.abspath(__file__))
         self.suspicious_words_file = os.path.join(self.project_path, "suspicious_words.csv")
-        
-        # Load word vectors and vocabulary
-        self.word_to_vector = self._load_word_vectors(vectors_path, vocab_path)
-        self.suspicious_entries = self._load_suspicious_entries()
+        self.suspicious_entries, self.entries = self._load_suspicious_entries()
 
-    def _load_word_vectors(self, vectors_path, vocab_path) -> Dict[str, np.ndarray]:
-        """Load word vectors and map them to vocabulary."""
-        if not vectors_path or not vocab_path:
-            return {}
-        try:
-            vectors = np.load(vectors_path)
-            with open(vocab_path, encoding="utf-8") as f:
-                words = [line.strip() for line in f]
-            return {word: vectors[i] for i, word in enumerate(words)}
-        except Exception as e:
-            print(f"Error loading word vectors: {e}")
-            return {}
+        self.model = KeyedVectors.load(binary_file_path)
 
     def _load_suspicious_entries(self) -> List[Tuple[List[str], int, str]]:
         """Load suspicious words from CSV."""
         if not os.path.exists(self.suspicious_words_file):
             return []
+        lemma_entries = []
         entries = []
         with open(self.suspicious_words_file, 'r', encoding='utf-8') as f:
             reader = csv.reader(f)
@@ -45,47 +30,47 @@ class SuspiciousWordDetector:
                 lemmatized_phrase = [
                     word.lemma for sentence in self.nlp(phrase).sentences for word in sentence.words
                 ]
-                entries.append((lemmatized_phrase, score, category))
-        return entries
+                lemma_entries.append((lemmatized_phrase, score, category))
+                entries.append(phrase)
+        return lemma_entries, entries
 
-    def _find_similar_words(self, word: str, topn=10, similarity_threshold=0.6) -> List[str]:
-        """Find words similar to the given word based on cosine similarity."""
-        if not self.word_to_vector or word not in self.word_to_vector:
-            return []
-        word_vec = self.word_to_vector[word].reshape(1, -1)
-        similar_words = [
-            other_word
-            for other_word, vector in self.word_to_vector.items()
-            if other_word != word
-            and cosine_similarity(word_vec, vector.reshape(1, -1))[0][0] >= similarity_threshold
-        ]
-        return sorted(similar_words, key=lambda w: cosine_similarity(word_vec, self.word_to_vector[w].reshape(1, -1))[0][0], reverse=True)[:topn]
+    def _find_similar_words(self, word:str, topn=2) -> List[str]:
+        def clean_word(word):
+            # Remove prefixes like 'NN_' and replace '~' with space
+            if '_' in word:
+                word = word.split('_', 1)[1]  # Keep only the part after the first underscore
+            return word.replace('~', ' ')
+        
+        try:
+            # Find the most similar words to the current word
+            return [clean_word(similar_word) for similar_word, _ in self.model.most_similar(word, topn=topn)]
+        except KeyError:
+            print(f"'{word}' not found in the vocabulary!")
+        return []
+    
+    def add_related_words(self, new_words: List[str], topn=2):
+            """Add new suspicious words and their similar words to the CSV."""
+            new_entries = []
+            for word in new_words:
+                # _find_similar_words expects a list, so pass a single-word list
+                similar_words = self._find_similar_words(word, topn)
+                for similar_word in similar_words:
+                    if similar_word not in self.entries:
+                        # Lemmatize the similar word
+                        lemmatized_similar_word = [
+                            word.lemma for sentence in self.nlp(similar_word).sentences for word in sentence.words
+                        ]
+                        new_entries.append([similar_word, "לא ידוע", 5])
+                        
+                        # Update both self.suspicious_entries and self.entries
+                        self.suspicious_entries.append((lemmatized_similar_word, 5, "לא ידוע"))
+                        self.entries.append(similar_word)
 
-    def add_related_words(self, new_words: List[str], topn=10, similarity_threshold=0.6):
-        """Add new suspicious words and their similar words to the CSV."""
-        existing_words = {entry[0][0] for entry in self.suspicious_entries}
-        new_entries = []
-
-        for word in new_words:
-            if len(new_entries) >= 5:# Limit the number of new entries to 5
-                break
-            similar_words = self._find_similar_words(word, topn, similarity_threshold)
-            for similar_word in similar_words:
-                similar_word = similar_word.replace('~', ' ')  # Replace '~' with a space
-                if similar_word not in existing_words:
-                    new_entries.append([similar_word, "לא ידוע", 5])
-
-        # Write new entries to CSV
-        if new_entries:
-            with open(self.suspicious_words_file, 'a', encoding='utf-8', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerows(new_entries)
-            # Reload suspicious entries
-            self.suspicious_entries = self._load_suspicious_entries()
-
-    def _normalize_score(self, score: int, max_score: int = 600) -> int:
-        """Normalize the score to a scale of 0 to 100."""
-        return 0 if score <= 5 else min(98, int((score / max_score) * 100))
+            # Write new entries to CSV
+            if new_entries:
+                with open(self.suspicious_words_file, 'a', encoding='utf-8', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerows(new_entries)
 
     def analyze_text(self, text: str) -> Tuple[int, List[str], List[str]]:
         """Analyze text for suspicious content"""
@@ -106,19 +91,18 @@ class SuspiciousWordDetector:
                     matched_phrases.append(matched_phrase)
 
         return total_score, list(matched_categories), matched_phrases
-
+    
     def calculate_score(self, text: str) -> Tuple[int, List[str], List[str]]:
         """Calculate sentence score"""
         total_score, matched_categories, matched_phrases = self.analyze_text(text)
-        normalized_score = self._normalize_score(total_score)
+        normalized_score = 0 if total_score <= 5 else min(98, int((total_score / 600) * 100))
 
         return normalized_score, matched_phrases, matched_categories
 
 # Usage Example
 if __name__ == "__main__":
     detector = SuspiciousWordDetector(
-        vectors_path="model/words_vectors.npy",
-        vocab_path="model/words_list.txt"
+        binary_file_path="model/words2vec.bin"
     )
     
     # Input text to analyze

@@ -44,8 +44,7 @@ fs = AsyncIOMotorGridFSBucket(db)
 
 # Suspicious word detector model
 detector = SuspiciousWordDetector(
-    vectors_path="model/words_vectors.npy",
-    vocab_path="model/words_list.txt"
+    binary_file_path="model/words2vec.bin"
 )
 
 # Helper function for converting MongoDB documents
